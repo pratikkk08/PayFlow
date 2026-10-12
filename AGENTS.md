@@ -10,16 +10,19 @@ PayFlow is a **portfolio-grade, production-inspired fintech platform** demonstra
 
 ## Current phase
 
-Phase 1 foundation is in progress / complete when documented in `docs/DEVELOPMENT_LOG.md` and `docs/ROADMAP.md`. Treat those docs as the source of truth for what is implemented versus planned. Do not invent completed domain features (auth, payments, etc.).
+Phase 2 (identity/merchants/API keys) is complete when recorded in `docs/DEVELOPMENT_LOG.md` and `docs/ROADMAP.md`. Do not invent payments or frontend features.
 
 ## Durable development conventions (Phase 1+)
 
-- Prefer **Spring Boot 4.x** versions that resolve on Maven Central (e.g. `4.1.1`, not `4.1.1.RELEASE` from Initializr metadata).
-- Set session `JAVA_HOME` via `scripts/set-java-home.ps1` when unset; do not invent system-wide env changes.
-- Local Compose Postgres is published on **host `5433`** (container `5432`) to avoid Windows conflicts with a native Postgres on `5432`.
-- Kafka is an **optional Compose profile** (`kafka`). Spring Kafka auto-configuration stays **excluded** until domain messaging is required.
-- Domain packages use `package-info.java` placeholders until that phase implements code — do not invent empty services/repos.
-- Surefire picks up `*Test.java`; use Failsafe/`*IT.java` only when intentionally splitting integration suites.
+- Prefer **Spring Boot 4.x** versions that resolve on Maven Central (e.g. `4.1.1`, not `4.1.1.RELEASE`).
+- Jackson **3** (`tools.jackson.databind.json.JsonMapper`) is the Boot 4 JSON bean — do not inject `com.fasterxml.jackson.databind.ObjectMapper`.
+- Set session `JAVA_HOME` via `scripts/set-java-home.ps1` when unset.
+- Compose Postgres host port **5433**; Redis **6379**; optional Kafka profile on **9094**.
+- Kafka Spring autoconfig remains **excluded** until messaging phases.
+- JWT RSA PEMs under `backend/local-secrets/` (gitignored); API key pepper via env.
+- Classify Bearer credentials: JWT vs `sk_test_`/`pk_test_` — never conflate.
+- Surefire discovers `*Test.java` (not `*IT.java` unless Failsafe is configured).
+- Auth rate limiting fails closed when Redis is down.
 
 ## Technology stack
 
@@ -106,6 +109,8 @@ docs/             Product, architecture, roadmap, decisions, logs
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records |
 | [docs/SETUP.md](docs/SETUP.md) | Local setup instructions |
 | [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md) | Verified tool versions and issues |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security controls and limitations |
+| [docs/API_AUTHENTICATION.md](docs/API_AUTHENTICATION.md) | JWT, refresh, and API-key auth |
 
 ## Explicit non-goals for agents
 

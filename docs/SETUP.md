@@ -1,6 +1,6 @@
 # PayFlow — Local Setup
 
-**Status:** Phase 1 verified on Windows 11 + Docker Desktop (2026-10-12)
+**Status:** Phase 2 verified on Windows 11 + Docker Desktop (2026-10-12)
 
 ## 1. Prerequisites
 
@@ -77,7 +77,9 @@ cd backend
 .\mvnw.cmd clean verify
 ```
 
-Phase 1 verified result: **7 tests, 0 failures** (requires Docker for Testcontainers Postgres + Redis).
+Phase 2 verified result: **12 tests, 0 failures** (requires Docker for Testcontainers Postgres + Redis).
+
+JWT RSA keys: local profile auto-generates `backend/local-secrets/jwt-*.pem` on first start (gitignored). Optional: `.\scripts\generate-jwt-keys.ps1`.
 
 ## 5. Run the backend
 
@@ -95,7 +97,11 @@ Or rely on `SPRING_PROFILES_ACTIVE=local` from `.env` / shell.
 |----------|------|----------|
 | `GET http://localhost:8080/api/v1/system/ping` | Public | `{"status":"UP","service":"payflow-backend"}` |
 | `GET http://localhost:8080/actuator/health` | Public | `{"status":"UP",...}` (no details) |
-| `GET http://localhost:8080/api/v1/merchants` | Denied | `401 Unauthorized` |
+| `POST /api/v1/auth/register` / `login` | Public | Creates user / returns tokens |
+| `GET /api/v1/users/me` | JWT | Current user profile |
+| `GET /api/v1/merchants` | JWT | Owner-accessible merchants |
+| `GET /api/v1/integrations/me` | `sk_test_` | Merchant key diagnostic |
+| `GET /swagger-ui.html` | Public (local) | OpenAPI UI |
 
 PowerShell checks:
 

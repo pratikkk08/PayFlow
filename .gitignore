@@ -26,6 +26,10 @@ ehthumbs.db
 *.jks
 secrets/
 credentials/
+local-secrets/
+backend/local-secrets/
+**/jwt-private.pem
+**/jwt-public.pem
 
 # --- Java / Maven ---
 backend/target/

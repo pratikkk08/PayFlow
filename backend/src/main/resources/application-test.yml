@@ -1,5 +1,3 @@
-# Used by automated tests. Datasource/Redis provided by Testcontainers @ServiceConnection.
-
 spring:
   main:
     allow-bean-definition-overriding: true
@@ -11,6 +9,26 @@ spring:
 
 payflow:
   kafka:
+    enabled: false
+  security:
+    jwt:
+      auto-generate-keys: true
+      private-key-path: ${java.io.tmpdir}/payflow-test-jwt-private.pem
+      public-key-path: ${java.io.tmpdir}/payflow-test-jwt-public.pem
+      access-token-ttl: 15m
+      issuer: payflow-test
+      audience: payflow-api-test
+    refresh-token:
+      ttl: 7d
+    api-key:
+      hash-pepper: test-api-key-pepper-not-for-production
+    rate-limit:
+      enabled: true
+      auth-requests-per-minute: 1000
+      fail-closed-when-redis-unavailable: true
+
+springdoc:
+  swagger-ui:
     enabled: false
 
 logging:

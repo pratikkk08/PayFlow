@@ -4,44 +4,40 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-12 — Phase 2: Identity, merchants & secure API keys
+
+### Done
+
+- Branched `feature/phase-2-identity-merchants` from Phase 1 (`75e8b55`).
+- Added Flyway `V2__identity_merchants_api_keys.sql` (users, roles, refresh sessions, merchants, memberships, api_keys, audit).
+- Implemented register/login, RS256 JWT access tokens, hashed refresh rotation/reuse detection/logout.
+- Implemented merchant CRUD (owner-scoped), API key create/list/revoke, integration diagnostic auth.
+- Distinguishes JWT vs `sk_test_` Bearer credentials; publishable keys rejected for auth.
+- Redis rate limiting on auth endpoints (fail-closed); OpenAPI/springdoc 3.1.1; JSON error model.
+- Tests: **12 passed** via `.\mvnw.cmd clean verify`.
+- Live E2E against Compose: register → login → me → merchant → API key → integration → revoke → reject; no secret in logs.
+
+### Dependencies added
+
+- `spring-boot-starter-oauth2-resource-server` (Boot managed)
+- `springdoc-openapi-starter-webmvc-ui` **3.1.1**
+
+### Not done
+
+- Payments, refunds, email verification, ADMIN workflows, frontend, Kafka domain events
+
+### Next
+
+Phase 3: payment state machine & simulated processor with idempotency.
+
+---
+
 ## 2026-10-12 — Phase 1: Backend foundation & local infrastructure
 
 ### Done
 
-- Created Phase 0 Git baseline commit on `main`, then branched `feature/phase-1-foundation`.
-- Generated Spring Boot **4.1.1** / Java 21 Maven project under `backend/` (Maven Wrapper).
-- Configured profiles `local`, `test`, `prod`; Flyway owns schema; Hibernate `ddl-auto=validate`.
-- Added modular package placeholders (`identity`, `merchants`, `payments`, …) via `package-info.java`.
-- Implemented public `GET /api/v1/system/ping` and Actuator health/info; Security denies other APIs with **401**.
-- Excluded default `UserDetailsService` and `KafkaAutoConfiguration` for Phase 1.
-- Added Flyway `V1__baseline.sql` (`payflow_schema_meta` marker only).
-- Added `infra/docker-compose.yml`: Postgres 16.6, Redis 7.4.2, optional Kafka 3.9.0 KRaft profile.
-- Mapped Postgres to host **5433** (host `5432` already occupied).
-- Tests: context + DB, Flyway, ping JSON, security denial — **`.\mvnw.cmd clean verify` BUILD SUCCESS (7 tests)**.
-- Verified live: ping UP, actuator health UP, Redis PONG, Flyway v1 applied, Kafka healthy on profile, host `9094` open.
-
-### Versions (pinned / observed)
-
-- Spring Boot parent: `4.1.1`
-- Java: Temurin `21.0.12.1`
-- Maven Wrapper: Apache Maven `3.10.0`
-- Postgres image: `postgres:16.6-alpine`
-- Redis image: `redis:7.4.2-alpine`
-- Kafka image: `apache/kafka:3.9.0`
-
-### Not done (later phases)
-
-- Identity, merchants, API keys, payments, refunds, webhooks, frontend, CI workflows
-
-### Notes
-
-- Spring Initializr returned `4.1.1.RELEASE`; Maven Central requires `4.1.1`.
-- Kafka first boot failed until `CLUSTER_ID` was a valid base64 UUID and listeners matched Apache image expectations.
-- Docker Desktop VM memory observed ~7.4 GiB — Kafka kept optional.
-
-### Next
-
-Phase 2: identity, merchants, hashed API keys, authenticated merchant APIs.
+- Spring Boot **4.1.1** / Java 21 Maven project, Compose Postgres/Redis/optional Kafka, Flyway V1, ping + security deny-by-default.
+- Commit `75e8b55` on `feature/phase-1-foundation`.
 
 ---
 
@@ -49,17 +45,4 @@ Phase 2: identity, merchants, hashed API keys, authenticated merchant APIs.
 
 ### Done
 
-- Inspected workspace at `C:\Projects\PayFlow` (empty; no prior application code).
-- Initialized local Git repository on branch `main` (no remote).
-- Verified toolchain from PowerShell: Java/javac, Node/npm, Git, Docker CLI, Docker Compose, WSL status.
-- Created persistent agent instructions: `AGENTS.md`.
-- Created project docs: product requirements, architecture, roadmap, decisions, setup, environment report.
-- Created `README.md`, `.gitignore`, `.env.example` (placeholders only).
-- Scaffolded directories: `backend/`, `frontend/`, `infra/`, `scripts/`, `docs/`, `.github/workflows/`.
-
-### Not done (intentionally out of scope)
-
-- Spring Boot application code (moved to Phase 1)
-- React frontend
-- Docker Compose stack files (moved to Phase 1)
-- CI workflows with real jobs
+- Docs, AGENTS.md, scaffolding, environment report. Commit `feb8bba` on `main`.

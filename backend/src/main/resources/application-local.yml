@@ -1,6 +1,17 @@
 # Local development against Docker Compose (Postgres + Redis).
-# Optional Kafka broker: docker compose --profile kafka up -d
-# Spring Kafka client wiring remains disabled in Phase 1 (see PayflowBackendApplication).
+
+payflow:
+  security:
+    jwt:
+      auto-generate-keys: true
+      private-key-path: local-secrets/jwt-private.pem
+      public-key-path: local-secrets/jwt-public.pem
+    api-key:
+      hash-pepper: ${API_KEY_HASH_PEPPER:local-dev-api-key-pepper-change-me}
+
+springdoc:
+  swagger-ui:
+    enabled: true
 
 logging:
   level:

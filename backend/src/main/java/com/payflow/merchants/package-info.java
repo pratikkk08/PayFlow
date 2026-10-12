@@ -1,4 +1,4 @@
 /**
- * Merchant accounts and API key ownership. Implemented in Phase 2+.
+ * Merchant accounts, memberships, and TEST-mode API key management/authentication.
  */
 package com.payflow.merchants;

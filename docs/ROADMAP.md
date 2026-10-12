@@ -55,11 +55,12 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] Register/login with hashed passwords
-- [ ] Create merchant; issue API key (secret shown once, hash stored)
-- [ ] Revoke API key; revoked keys rejected
-- [ ] OpenAPI docs for auth/merchant/key endpoints
-- [ ] Tests for hashing and auth filter behavior
+- [x] Register/login with hashed passwords
+- [x] Create merchant; issue API key (secret shown once, hash stored)
+- [x] Revoke API key; revoked keys rejected
+- [x] OpenAPI docs for auth/merchant/key endpoints
+- [x] Tests for hashing and auth filter behavior
+- [x] JWT + refresh rotation + ownership isolation
 
 ---
 

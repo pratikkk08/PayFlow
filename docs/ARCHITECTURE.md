@@ -203,17 +203,22 @@ Docker Compose services (Phase 1+): `postgres`, `redis`, `kafka` (+ ZooKeeper or
 
 Resource caps should be set so a 16 GB machine remains usable.
 
-## 13. Phase 1 implementation notes
+## 13. Phase 1–2 implementation notes
 
-| Area | Phase 1 reality |
-|------|-----------------|
-| App | `backend/` Spring Boot **4.1.1**, Java 21, Maven Wrapper |
-| Packages | Domain packages present as `package-info.java` only |
-| Schema | Flyway `V1__baseline.sql` → `payflow_schema_meta` marker; no payment tables yet |
-| Hibernate | `ddl-auto=validate` (no auto DDL) |
-| Security | Public: `/api/v1/system/ping`, `/actuator/health`, `/actuator/info`; all other routes **401** |
-| Kafka | Compose profile `kafka` verified; Spring `KafkaAutoConfiguration` **excluded** until messaging phases |
-| Ports | Postgres host **5433**, Redis **6379**, Kafka host **9094**, app **8080** |
+| Area | Reality |
+|------|---------|
+| App | Spring Boot **4.1.1**, Java 21, Maven Wrapper |
+| Identity | Register/login, RS256 JWT, hashed refresh rotation, `/users/me` |
+| Merchants | Owner-scoped CRUD; memberships table ready for future MEMBER role |
+| API keys | `sk_test_` / `pk_test_`; secret HMAC hash; `/integrations/me` diagnostic |
+| Schema | Flyway V1 baseline + V2 identity/merchants/keys/audit |
+| Hibernate | `ddl-auto=validate` |
+| Security | Public auth + ping + health; JWT vs API-key Bearer classification |
+| OpenAPI | springdoc **3.1.1**; Swagger UI local-only |
+| Kafka | Still excluded from Spring autoconfig |
+| Ports | Postgres **5433**, Redis **6379**, Kafka **9094**, app **8080** |
+
+See also [API_AUTHENTICATION.md](API_AUTHENTICATION.md) and [SECURITY.md](SECURITY.md).
 
 ## 14. Explicit honesty
 

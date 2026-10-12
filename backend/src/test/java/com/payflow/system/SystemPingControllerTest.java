@@ -6,16 +6,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 
-import com.payflow.config.SecurityConfig;
+import com.payflow.TestcontainersConfiguration;
 
-@WebMvcTest(controllers = SystemPingController.class)
-@Import(SecurityConfig.class)
+@SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TestcontainersConfiguration.class)
 class SystemPingControllerTest {
 
 	@Autowired
@@ -28,5 +30,4 @@ class SystemPingControllerTest {
 				.andExpect(jsonPath("$.status").value("UP"))
 				.andExpect(jsonPath("$.service").value("payflow-backend"));
 	}
-
 }

@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 1 — backend foundation.** Spring Boot 4.1.1 modular monolith skeleton, Flyway baseline, Docker Compose (Postgres/Redis + optional Kafka), public ping + Actuator health, and deny-by-default API security are in place.
+**Phase 2 — identity & merchants.** User registration/login (BCrypt), RS256 JWTs + hashed refresh tokens, owner-scoped merchants, TEST-mode API keys (`sk_test_`/`pk_test_`), OpenAPI, and Redis auth rate limiting are implemented.
 
-Not yet built: identity/merchants/API keys, payments, refunds, webhooks, React dashboard.
+Not yet built: payments, refunds, webhooks, React dashboard.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -64,8 +64,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Phase | Focus |
 |-------|--------|
 | 0 | Docs, repo layout, environment validation |
-| 1 | Backend skeleton, Docker Compose (Postgres/Redis/Kafka), Flyway baseline ← **current** |
-| 2 | Identity & merchants, API keys |
+| 1 | Backend skeleton, Docker Compose (Postgres/Redis/Kafka), Flyway baseline |
+| 2 | Identity & merchants, API keys ← **current** |
 | 3 | Payments state machine & simulated processor |
 | 4 | Refunds, ledger, idempotency hardening |
 | 5 | Webhooks, outbox, Kafka consumers |
@@ -100,12 +100,15 @@ cd backend
 
 - Ping: `http://localhost:8080/api/v1/system/ping`
 - Health: `http://localhost:8080/actuator/health`
+- Swagger (local): `http://localhost:8080/swagger-ui.html`
+- Auth guide: [docs/API_AUTHENTICATION.md](docs/API_AUTHENTICATION.md)
+- Security notes: [docs/SECURITY.md](docs/SECURITY.md)
 - Optional Kafka: `docker compose -f infra/docker-compose.yml --env-file .env --profile kafka up -d`
 
 Full instructions: [docs/SETUP.md](docs/SETUP.md).  
 Verified tool versions: [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md).
 
-**Note:** Compose Postgres uses host port **5433** by default.
+**Note:** Compose Postgres uses host port **5433** by default. JWT PEM keys are auto-created under `backend/local-secrets/` for local profile.
 
 ## Documentation
 

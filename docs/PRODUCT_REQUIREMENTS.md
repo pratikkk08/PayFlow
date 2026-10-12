@@ -1,6 +1,6 @@
 # PayFlow — Product Requirements
 
-**Status:** Phase 0 baseline (not yet implemented)  
+**Status:** Phase 2 identity/merchants implemented; payments still planned  
 **Last updated:** 2026-10-12
 
 ## 1. Vision

@@ -1,4 +1,4 @@
 /**
- * Identity and authentication domain. Implemented in Phase 2+.
+ * Identity and authentication: users, password hashing, JWT access tokens, refresh sessions.
  */
 package com.payflow.identity;

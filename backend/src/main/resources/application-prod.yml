@@ -1,6 +1,3 @@
-# Production-oriented defaults. Not production-ready by itself.
-# All secrets and connection details MUST come from the environment / secret manager.
-
 spring:
   jpa:
     hibernate:
@@ -18,9 +15,20 @@ management:
     health:
       show-details: never
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 payflow:
   kafka:
     enabled: ${PAYFLOW_KAFKA_ENABLED:true}
+  security:
+    jwt:
+      auto-generate-keys: false
+    rate-limit:
+      fail-closed-when-redis-unavailable: true
 
 logging:
   level:

@@ -28,6 +28,10 @@ spring:
     username: ${DATABASE_USERNAME:payflow}
     password: ${DATABASE_PASSWORD:change_me_local_only}
     driver-class-name: org.postgresql.Driver
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 1MB
 
 server:
   port: ${APP_PORT:8080}
@@ -51,9 +55,32 @@ management:
     env:
       enabled: true
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: false
+
 payflow:
   kafka:
     enabled: ${PAYFLOW_KAFKA_ENABLED:false}
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:payflow}
+      audience: ${JWT_AUDIENCE:payflow-api}
+      access-token-ttl: ${JWT_ACCESS_TTL:15m}
+      private-key-path: ${JWT_PRIVATE_KEY_PATH:local-secrets/jwt-private.pem}
+      public-key-path: ${JWT_PUBLIC_KEY_PATH:local-secrets/jwt-public.pem}
+      auto-generate-keys: ${JWT_AUTO_GENERATE_KEYS:false}
+    refresh-token:
+      ttl: ${REFRESH_TOKEN_TTL:7d}
+    api-key:
+      hash-pepper: ${API_KEY_HASH_PEPPER:change-me-local-pepper}
+    rate-limit:
+      enabled: true
+      auth-requests-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:30}
+      fail-closed-when-redis-unavailable: true
 
 info:
   app:

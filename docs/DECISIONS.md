@@ -123,3 +123,33 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 - **Context:** Host port `5432` was already bound by a native PostgreSQL process on the Phase 1 machine. Kafka is memory-heavy on a Docker Desktop VM (~7 GB allocated).
 - **Decision:** Publish Compose Postgres as `127.0.0.1:5433→5432`. Keep Redis on `6379`. Ship Kafka as Compose profile `kafka` (KRaft, `apache/kafka:3.9.0`, host `9094`). Exclude Spring `KafkaAutoConfiguration` until messaging phases need it; still verify the broker via Compose when the profile is started.
 - **Consequences:** `.env` / JDBC defaults use port `5433`. Developers with a free `5432` may remap, but docs standardize on `5433`.
+
+---
+
+## ADR-013: RS256 JWT access tokens + opaque hashed refresh tokens
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** Need short-lived API auth without storing session state for every request, plus revocable longer-lived sessions.
+- **Decision:** Issue RS256 access JWTs (issuer/audience/`token_use` validated via OAuth2 Resource Server). Refresh tokens are opaque, stored as SHA-256 hashes with family-based rotation and reuse revocation. RSA PEM keys live outside Git.
+- **Consequences:** Logout cannot instantly kill access JWTs without a denylist; refresh reuse detection requires DB locks.
+
+---
+
+## ADR-014: HMAC-SHA256 peppered hashes for high-entropy API keys
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** API secrets are high-entropy random strings; bcrypt is unnecessary and slower for this use case.
+- **Decision:** Store `HMAC-SHA256(API_KEY_HASH_PEPPER, rawSecret)` for secret keys; return raw secret once; classify `sk_test_` vs JWT Bearer formats explicitly.
+- **Consequences:** Pepper rotation invalidates all secret key hashes; pepper must be treated as a critical secret.
+
+---
+
+## ADR-015: Auth rate limiting fails closed without Redis
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** Brute-force protection on register/login/refresh should not silently disappear if Redis is down.
+- **Decision:** Redis sliding counters for auth endpoints; if Redis is unavailable, return **503** rather than allowing unlimited attempts.
+- **Consequences:** Auth endpoints depend on Redis availability in addition to Postgres.

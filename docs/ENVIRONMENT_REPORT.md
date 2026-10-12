@@ -3,7 +3,7 @@
 **Machine:** Windows 11 (win32 10.0.26300)  
 **Shell:** PowerShell  
 **Workspace:** `C:\Projects\PayFlow`  
-**Last updated:** 2026-10-12 (Phase 1 verification)  
+**Last updated:** 2026-10-12 (Phase 2 verification)  
 
 This report records **observed** command outcomes.
 
@@ -22,20 +22,14 @@ This report records **observed** command outcomes.
 | Maven Wrapper | OK | Apache Maven **3.10.0** via `backend\mvnw.cmd` |
 | Global `mvn` | Absent | Expected |
 
-## 2. Phase 1 verification results
+## 2. Phase 2 verification results
 
 | Check | Result |
 |-------|--------|
-| `docker compose -f infra/docker-compose.yml config` | Pass |
-| Postgres container healthy (`127.0.0.1:5433`) | Pass |
-| Redis container healthy + `PONG` | Pass |
-| Kafka profile container healthy + host `9094` | Pass (after listener/`CLUSTER_ID` fix) |
-| `.\mvnw.cmd clean verify` | Pass — **7 tests, 0 failures** |
-| Flyway V1 on Compose Postgres | Pass (`schema_phase=phase-1`) |
-| `GET /api/v1/system/ping` | Pass — UP / payflow-backend |
-| `GET /actuator/health` | Pass — UP (details hidden) |
-| `GET /api/v1/merchants` | Pass — **401** |
-| Spring Boot `spring-boot:run` (local) | Pass — started without fatal errors |
+| `.\mvnw.cmd clean verify` | Pass — **12 tests, 0 failures** |
+| Flyway on Compose Postgres | Pass (`schema_phase=phase-2`) |
+| E2E register→login→me→merchant→API key→revoke | Pass (secrets redacted; not logged) |
+| Jackson 3 `JsonMapper` bean wiring | Pass (Boot 4) |
 
 ## 3. Issues found and fixes
 
