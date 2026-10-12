@@ -1,0 +1,29 @@
+# Production-oriented defaults. Not production-ready by itself.
+# All secrets and connection details MUST come from the environment / secret manager.
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+payflow:
+  kafka:
+    enabled: ${PAYFLOW_KAFKA_ENABLED:true}
+
+logging:
+  level:
+    root: INFO
+    com.payflow: INFO
+    org.springframework.security: WARN

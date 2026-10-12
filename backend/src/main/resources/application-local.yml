@@ -1,0 +1,9 @@
+# Local development against Docker Compose (Postgres + Redis).
+# Optional Kafka broker: docker compose --profile kafka up -d
+# Spring Kafka client wiring remains disabled in Phase 1 (see PayflowBackendApplication).
+
+logging:
+  level:
+    root: INFO
+    com.payflow: DEBUG
+    org.springframework.security: INFO

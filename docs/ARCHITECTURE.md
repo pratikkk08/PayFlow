@@ -1,6 +1,6 @@
 # PayFlow — Architecture
 
-**Status:** Target architecture for a modular monolith (not yet implemented)  
+**Status:** Target architecture for a modular monolith. Phase 1 foundation (Boot app, Compose, Flyway baseline, ping/security) is implemented; domain modules remain planned.  
 **Last updated:** 2026-10-12
 
 ## 1. Overview
@@ -203,6 +203,18 @@ Docker Compose services (Phase 1+): `postgres`, `redis`, `kafka` (+ ZooKeeper or
 
 Resource caps should be set so a 16 GB machine remains usable.
 
-## 13. Explicit honesty
+## 13. Phase 1 implementation notes
 
-This document describes the **intended** design. Until code and migrations exist, treat entities, topics, and endpoints as planned. Implementation may refine names and the MVP payment state set; significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+| Area | Phase 1 reality |
+|------|-----------------|
+| App | `backend/` Spring Boot **4.1.1**, Java 21, Maven Wrapper |
+| Packages | Domain packages present as `package-info.java` only |
+| Schema | Flyway `V1__baseline.sql` → `payflow_schema_meta` marker; no payment tables yet |
+| Hibernate | `ddl-auto=validate` (no auto DDL) |
+| Security | Public: `/api/v1/system/ping`, `/actuator/health`, `/actuator/info`; all other routes **401** |
+| Kafka | Compose profile `kafka` verified; Spring `KafkaAutoConfiguration` **excluded** until messaging phases |
+| Ports | Postgres host **5433**, Redis **6379**, Kafka host **9094**, app **8080** |
+
+## 14. Explicit honesty
+
+Domain entities, payment state machines, webhooks, and Kafka consumers remain **planned** until later phases. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).

@@ -1,113 +1,130 @@
 # PayFlow — Local Setup
 
-**Status:** Phase 0 — prerequisites and intentions only. Application start commands arrive in Phase 1+.
+**Status:** Phase 1 verified on Windows 11 + Docker Desktop (2026-10-12)
 
 ## 1. Prerequisites
 
 | Tool | Target | Notes |
 |------|--------|-------|
-| Windows 11 | — | Developed on Windows + PowerShell |
-| Java JDK | 21 | Temurin or equivalent; `java` and `javac` on PATH |
-| Node.js | 22 LTS preferred | Host may run newer; frontend not scaffolded yet |
-| npm | Bundled with Node | — |
+| Windows 11 | — | PowerShell |
+| Java JDK | 21 | Temurin verified: `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot` |
+| Node.js | 22+ / 24 | Frontend not required for Phase 1 |
 | Git | 2.x | — |
-| Docker Desktop | Recent stable | WSL 2 backend |
-| Docker Compose | V2+ plugin (`docker compose`) | — |
-| Maven | Not required globally | Use Maven Wrapper once `backend/` exists |
-| RAM | 16 GB class | Cap Compose memory for Kafka/Postgres |
+| Docker Desktop | WSL 2 | Engine must be running |
+| Maven | Wrapper only | `backend\mvnw.cmd` |
 
-Verified versions on the authoring machine are recorded in [ENVIRONMENT_REPORT.md](ENVIRONMENT_REPORT.md). Re-run checks on any new machine.
+If `JAVA_HOME` is empty:
 
-## 2. Clone / obtain the repo
+```powershell
+. .\scripts\set-java-home.ps1
+```
+
+## 2. Environment file
 
 ```powershell
 cd C:\Projects\PayFlow
-# If cloning in the future:
-# git clone <remote-url> PayFlow
-# cd PayFlow
-```
-
-There may be no remote during early local development.
-
-## 3. Environment file
-
-```powershell
 Copy-Item .env.example .env
-# Edit .env with local-only values. Never commit .env.
+# Edit only if you change ports/passwords. Never commit .env.
 ```
 
-Placeholders in `.env.example` are intentionally non-secret. Replace passwords and signing secrets before running services that read them (Phase 1+).
+Important defaults:
 
-## 4. Infrastructure (Phase 1+)
+- Postgres **host port `5433`** (avoids conflict with native Postgres on `5432`)
+- Redis `6379`
+- Kafka (optional) host `9094`
+- `SPRING_PROFILES_ACTIVE=local`
+- `PAYFLOW_KAFKA_ENABLED=false` (Spring Kafka client still excluded in Phase 1)
 
-When `infra/docker-compose.yml` exists:
+## 3. Start infrastructure
+
+From the repository root:
 
 ```powershell
-cd infra
-docker compose up -d
-docker compose ps
+# Required for local app: Postgres + Redis
+docker compose -f infra/docker-compose.yml --env-file .env up -d
+
+# Optional Kafka (KRaft, ~768MB cap)
+docker compose -f infra/docker-compose.yml --env-file .env --profile kafka up -d
+
+docker compose -f infra/docker-compose.yml ps
 ```
 
-Expected services (planned): PostgreSQL, Redis, Kafka (and dependencies). Adjust memory limits if the laptop swaps heavily.
-
-Stop:
+Validate Compose file:
 
 ```powershell
-docker compose down
+docker compose -f infra/docker-compose.yml config
 ```
 
-Data directories under `infra/` should remain gitignored.
+Health expectations:
 
-## 5. Backend (Phase 1+)
+- `payflow-postgres` healthy on `127.0.0.1:5433`
+- `payflow-redis` healthy on `127.0.0.1:6379`
+- `payflow-kafka` healthy on `127.0.0.1:9094` when profile enabled
 
-When the Spring Boot project exists:
+Stop services (keeps volumes):
 
 ```powershell
+docker compose -f infra/docker-compose.yml --profile kafka down
+```
+
+Do **not** run `docker compose down -v` unless you intentionally want to wipe local data volumes.
+
+## 4. Run tests
+
+```powershell
+. .\scripts\set-java-home.ps1
 cd backend
-.\mvnw.cmd test
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd clean verify
 ```
 
-Default API port (planned): `8080`. Confirm with Actuator health:
+Phase 1 verified result: **7 tests, 0 failures** (requires Docker for Testcontainers Postgres + Redis).
+
+## 5. Run the backend
 
 ```powershell
+. .\scripts\set-java-home.ps1   # from repo root if needed
+cd backend
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+Or rely on `SPRING_PROFILES_ACTIVE=local` from `.env` / shell.
+
+### Endpoints
+
+| Endpoint | Auth | Expected |
+|----------|------|----------|
+| `GET http://localhost:8080/api/v1/system/ping` | Public | `{"status":"UP","service":"payflow-backend"}` |
+| `GET http://localhost:8080/actuator/health` | Public | `{"status":"UP",...}` (no details) |
+| `GET http://localhost:8080/api/v1/merchants` | Denied | `401 Unauthorized` |
+
+PowerShell checks:
+
+```powershell
+Invoke-RestMethod http://localhost:8080/api/v1/system/ping
 Invoke-RestMethod http://localhost:8080/actuator/health
 ```
 
-## 6. Frontend (Phase 7+)
+## 6. Profiles
 
-When the Vite app exists:
+| Profile | Purpose |
+|---------|---------|
+| `local` | Default; Compose Postgres/Redis |
+| `test` | Automated tests + Testcontainers |
+| `prod` | Safe defaults only; secrets via env — not production-certified |
 
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+## 7. Troubleshooting
 
-Default Vite port (planned): `5173`.
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Postgres port bind error on 5432 | Native Postgres occupying 5432 | Use Compose mapping **5433** (default) |
+| `JAVA_HOME` empty / Maven fails | JDK path not exported | `. .\scripts\set-java-home.ps1` |
+| Docker daemon errors | Desktop not running | Start Docker Desktop; wait for engine |
+| Kafka restart loop | Bad cluster id / listeners | Use current `infra/docker-compose.yml`; recreate kafka volume only if needed |
+| Parent POM `4.1.1.RELEASE` missing | Wrong version string | Use `4.1.1` (Maven Central) |
 
-## 7. Useful docs
+## 8. Related docs
 
-- Product scope: [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md)
-- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Phases: [ROADMAP.md](ROADMAP.md)
-- Agent rules: [../AGENTS.md](../AGENTS.md)
-
-## 8. Safety checklist
-
-- [ ] `.env` is not staged for commit
-- [ ] No real card data in fixtures
-- [ ] Docker Desktop has enough disk and is running before Compose
-- [ ] Kafka/Postgres containers are not left unbounded if RAM is tight
-
-## 9. Troubleshooting (initial)
-
-| Symptom | Likely cause | Mitigation |
-|---------|--------------|------------|
-| `docker` errors / daemon | Docker Desktop not running | Start Docker Desktop; wait until engine is ready |
-| `java` not found | JDK not installed or PATH | Install Temurin 21; restart shell |
-| `JAVA_HOME` empty | Not set system-wide | Optional: set `JAVA_HOME` to JDK root; PATH alone may suffice |
-| Port 5432/9092 in use | Local Postgres/Kafka already bound | Stop conflicting service or change Compose ports |
-| WSL distro Stopped | Docker Desktop idle/stopped | Start Docker Desktop; WSL distro starts with engine |
-
-Update this file whenever Phase 1 commands are verified on Windows PowerShell.
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [ROADMAP.md](ROADMAP.md)
+- [ENVIRONMENT_REPORT.md](ENVIRONMENT_REPORT.md)
+- [../AGENTS.md](../AGENTS.md)

@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: payflow-backend
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    admin:
+      fail-fast: false
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/payflow}
+    username: ${DATABASE_USERNAME:payflow}
+    password: ${DATABASE_PASSWORD:change_me_local_only}
+    driver-class-name: org.postgresql.Driver
+
+server:
+  port: ${APP_PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+payflow:
+  kafka:
+    enabled: ${PAYFLOW_KAFKA_ENABLED:false}
+
+info:
+  app:
+    name: payflow-backend
+    description: PayFlow simulated payment platform

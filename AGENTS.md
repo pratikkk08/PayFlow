@@ -10,7 +10,16 @@ PayFlow is a **portfolio-grade, production-inspired fintech platform** demonstra
 
 ## Current phase
 
-Phase 0 (project initialization and documentation) is the starting baseline. Application code may not exist yet. Treat documentation and `docs/DEVELOPMENT_LOG.md` as the source of truth for what is implemented versus planned. Do not invent completed features.
+Phase 1 foundation is in progress / complete when documented in `docs/DEVELOPMENT_LOG.md` and `docs/ROADMAP.md`. Treat those docs as the source of truth for what is implemented versus planned. Do not invent completed domain features (auth, payments, etc.).
+
+## Durable development conventions (Phase 1+)
+
+- Prefer **Spring Boot 4.x** versions that resolve on Maven Central (e.g. `4.1.1`, not `4.1.1.RELEASE` from Initializr metadata).
+- Set session `JAVA_HOME` via `scripts/set-java-home.ps1` when unset; do not invent system-wide env changes.
+- Local Compose Postgres is published on **host `5433`** (container `5432`) to avoid Windows conflicts with a native Postgres on `5432`.
+- Kafka is an **optional Compose profile** (`kafka`). Spring Kafka auto-configuration stays **excluded** until domain messaging is required.
+- Domain packages use `package-info.java` placeholders until that phase implements code — do not invent empty services/repos.
+- Surefire picks up `*Test.java`; use Failsafe/`*IT.java` only when intentionally splitting integration suites.
 
 ## Technology stack
 

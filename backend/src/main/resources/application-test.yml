@@ -1,0 +1,19 @@
+# Used by automated tests. Datasource/Redis provided by Testcontainers @ServiceConnection.
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+payflow:
+  kafka:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.payflow: INFO

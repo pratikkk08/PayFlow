@@ -12,7 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 0 — project initialization.** Documentation, repository layout, environment validation, and agent instructions are in place. The Spring Boot backend and React frontend are **not built yet**.
+**Phase 1 — backend foundation.** Spring Boot 4.1.1 modular monolith skeleton, Flyway baseline, Docker Compose (Postgres/Redis + optional Kafka), public ping + Actuator health, and deny-by-default API security are in place.
+
+Not yet built: identity/merchants/API keys, payments, refunds, webhooks, React dashboard.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -61,8 +63,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Phase | Focus |
 |-------|--------|
-| 0 | Docs, repo layout, environment validation ← **current** |
-| 1 | Backend skeleton, Docker Compose (Postgres/Redis/Kafka), Flyway baseline |
+| 0 | Docs, repo layout, environment validation |
+| 1 | Backend skeleton, Docker Compose (Postgres/Redis/Kafka), Flyway baseline ← **current** |
 | 2 | Identity & merchants, API keys |
 | 3 | Payments state machine & simulated processor |
 | 4 | Refunds, ledger, idempotency hardening |
@@ -85,15 +87,25 @@ docs/                 Requirements, architecture, roadmap, decisions, logs
 AGENTS.md             Persistent instructions for AI coding agents
 ```
 
-## Local development (intentions)
+## Local development
 
-1. Copy `.env.example` → `.env` and set local-only placeholders.
-2. Start infrastructure with Docker Compose from `infra/` (Compose file arrives in Phase 1).
-3. Run the backend via Maven Wrapper once the Spring Boot project exists.
-4. Run the frontend via `npm` once the Vite app exists.
+```powershell
+Copy-Item .env.example .env
+. .\scripts\set-java-home.ps1
+docker compose -f infra/docker-compose.yml --env-file .env up -d
+cd backend
+.\mvnw.cmd clean verify
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
 
-Setup details and prerequisites: [docs/SETUP.md](docs/SETUP.md).  
-Verified tool versions on this machine: [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md).
+- Ping: `http://localhost:8080/api/v1/system/ping`
+- Health: `http://localhost:8080/actuator/health`
+- Optional Kafka: `docker compose -f infra/docker-compose.yml --env-file .env --profile kafka up -d`
+
+Full instructions: [docs/SETUP.md](docs/SETUP.md).  
+Verified tool versions: [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md).
+
+**Note:** Compose Postgres uses host port **5433** by default.
 
 ## Documentation
 

@@ -6,7 +6,7 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ---
 
-## Phase 0 — Initialization & documentation (current)
+## Phase 0 — Initialization & documentation
 
 **Objective:** Establish repository, agent context, docs, ignore rules, and verify the local toolchain.
 
@@ -33,19 +33,19 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Deliverables
 
-- Maven Wrapper Spring Boot 3.x project under `backend/`
-- `infra/docker-compose.yml` with resource-conscious settings
+- Maven Wrapper Spring Boot **4.1.1** project under `backend/`
+- `infra/docker-compose.yml` with resource-conscious settings (Kafka optional profile)
 - Flyway migration stub / baseline schema (minimal)
-- Actuator health endpoint
+- Actuator health endpoint + public ping
 - Application reads config from env / `.env` pattern documented in SETUP
 
 ### Acceptance criteria
 
-- [ ] `./mvnw test` (or Windows equivalent) succeeds for smoke tests
-- [ ] `docker compose up` starts Postgres, Redis, Kafka successfully
-- [ ] App connects to Postgres; Flyway runs cleanly
-- [ ] SETUP.md updated with verified commands
-- [ ] DEVELOPMENT_LOG entry added
+- [x] `.\mvnw.cmd clean verify` succeeds for Phase 1 tests
+- [x] `docker compose` starts Postgres + Redis; Kafka via `--profile kafka`
+- [x] App connects to Postgres; Flyway runs cleanly
+- [x] SETUP.md updated with verified commands
+- [x] DEVELOPMENT_LOG entry added
 
 ---
 

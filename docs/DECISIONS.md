@@ -103,3 +103,23 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 - **Context:** Building UI before payment/idempotency APIs wastes rework.
 - **Decision:** Phase 7 delivers the React dashboard after core backend phases. `frontend/` directory reserved earlier.
 - **Consequences:** Longer period without UI demos; APIs must be documented via OpenAPI for interim testing.
+
+---
+
+## ADR-011: Spring Boot 4.1.1 on Java 21
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** Spring Initializr currently defaults to Boot 4.x; Maven Central publishes versions as `4.1.1` (no `.RELEASE` suffix). Boot 3.x remains available but Initializr’s generated starters (`webmvc`, modular test jars) target Boot 4.
+- **Decision:** Use **Spring Boot 4.1.1** with Java 21 for `payflow-backend`, pinning the parent POM to the Central-resolvable version string.
+- **Consequences:** Newer package names (e.g. `org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration`, `spring-boot-starter-webmvc`). Agents must not assume Boot 2/3 artifact IDs blindly.
+
+---
+
+## ADR-012: Compose Postgres on host 5433; Kafka optional profile
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** Host port `5432` was already bound by a native PostgreSQL process on the Phase 1 machine. Kafka is memory-heavy on a Docker Desktop VM (~7 GB allocated).
+- **Decision:** Publish Compose Postgres as `127.0.0.1:5433→5432`. Keep Redis on `6379`. Ship Kafka as Compose profile `kafka` (KRaft, `apache/kafka:3.9.0`, host `9094`). Exclude Spring `KafkaAutoConfiguration` until messaging phases need it; still verify the broker via Compose when the profile is started.
+- **Consequences:** `.env` / JDBC defaults use port `5433`. Developers with a free `5432` may remap, but docs standardize on `5433`.

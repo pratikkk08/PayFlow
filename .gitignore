@@ -69,10 +69,14 @@ infra/data/
 **/redis-data/
 **/kafka-data/
 
-# --- Logs ---
+# --- Logs / local run output ---
 *.log
+*.out
+*.err
 logs/
 **/logs/
+backend/verify-out.txt
+backend/app-run.*
 
 # --- Misc ---
 *.tmp
