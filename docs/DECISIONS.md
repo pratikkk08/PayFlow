@@ -153,3 +153,23 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 - **Context:** Brute-force protection on register/login/refresh should not silently disappear if Redis is down.
 - **Decision:** Redis sliding counters for auth endpoints; if Redis is unavailable, return **503** rather than allowing unlimited attempts.
 - **Consequences:** Auth endpoints depend on Redis availability in addition to Postgres.
+
+---
+
+## ADR-016: Payment create idempotency in PostgreSQL
+
+- **Date:** 2026-10-13
+- **Status:** Accepted
+- **Context:** Concurrent `POST /payments` retries must not double-charge; Redis must not be SoT for money paths.
+- **Decision:** Require `Idempotency-Key` scoped by `(merchant_id, operation, key)`. Reserve with `INSERT … ON CONFLICT DO NOTHING` against a unique constraint; create the payment and mark the record `COMPLETED` with fingerprint + response JSON in the **same** transaction. Replays return HTTP 201 with the stored body; fingerprint mismatch returns 409. Retention: `expires_at = created_at + 72h`; cleanup (future) may remove only expired `COMPLETED` rows — never active `STARTED` leases.
+- **Consequences:** Concurrent callers serialize on the unique index; aborted creates roll back the reservation; no Redis lock dependency.
+
+---
+
+## ADR-017: Two-step authorize/capture with CANCELLED
+
+- **Date:** 2026-10-13
+- **Status:** Accepted
+- **Context:** Architecture allowed either single-step capture or auth/capture split; Phase 3 needed a concrete machine.
+- **Decision:** Use two-step flow: `CREATED` → `AUTHORIZED` → `CAPTURED`, with simulated decline `CREATED` → `FAILED`. Abandonment uses `CANCELLED` from `CREATED` or `AUTHORIZED` (no `VOIDED` status). Transitions enforced on `PaymentEntity`; concurrent updates use `@Version` plus `SELECT … FOR UPDATE`.
+- **Consequences:** Clients must call authorize then capture; cancel is the release path. Refunds (Phase 4) attach only to `CAPTURED`.

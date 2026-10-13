@@ -5,6 +5,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -13,10 +14,12 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -47,11 +50,35 @@ public class GlobalExceptionHandler {
 				.body(ApiError.of(400, "invalid_request", "Malformed request body", request.getRequestURI()));
 	}
 
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex,
+			HttpServletRequest request) {
+		return ResponseEntity.badRequest()
+				.body(ApiError.of(400, "validation_error",
+						"Missing required parameter: " + ex.getParameterName(), request.getRequestURI()));
+	}
+
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+			HttpServletRequest request) {
+		return ResponseEntity.badRequest()
+				.body(ApiError.of(400, "validation_error",
+						"Invalid value for parameter: " + ex.getName(), request.getRequestURI()));
+	}
+
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	public ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException ex, HttpServletRequest request) {
 		log.warn("Data integrity violation on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 				.body(ApiError.of(409, "conflict", "Resource conflict", request.getRequestURI()));
+	}
+
+	@ExceptionHandler(OptimisticLockingFailureException.class)
+	public ResponseEntity<ApiError> handleOptimisticLock(OptimisticLockingFailureException ex,
+			HttpServletRequest request) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ApiError.of(409, "conflict", "Payment was updated concurrently; retry with current state",
+						request.getRequestURI()));
 	}
 
 	@ExceptionHandler({ BadCredentialsException.class, AuthenticationException.class })

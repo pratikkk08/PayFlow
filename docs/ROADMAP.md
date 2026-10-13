@@ -1,6 +1,6 @@
 # PayFlow — Development Roadmap
 
-**Last updated:** 2026-10-12
+**Last updated:** 2026-10-13
 
 Phases are sequential. Do not claim a phase complete until its acceptance criteria pass. Application features start at Phase 1.
 
@@ -70,12 +70,12 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] Money as minor units + currency
-- [ ] Idempotency-Key semantics (replay + payload conflict)
-- [ ] State machine enforced in domain layer
-- [ ] Simulated success/decline paths
-- [ ] Optimistic locking under concurrent updates
-- [ ] Integration tests with Testcontainers Postgres
+- [x] Money as minor units + currency
+- [x] Idempotency-Key semantics (replay + payload conflict)
+- [x] State machine enforced in domain layer
+- [x] Simulated success/decline paths
+- [x] Optimistic locking under concurrent updates
+- [x] Integration tests with Testcontainers Postgres
 
 ---
 

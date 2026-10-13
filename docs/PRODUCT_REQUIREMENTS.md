@@ -1,7 +1,7 @@
 # PayFlow — Product Requirements
 
-**Status:** Phase 2 identity/merchants implemented; payments still planned  
-**Last updated:** 2026-10-12
+**Status:** Phase 3 payments (create/authorize/capture/cancel + idempotency) implemented; refunds/ledger still planned  
+**Last updated:** 2026-10-13
 
 ## 1. Vision
 

@@ -4,6 +4,28 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-13 — Phase 3: Payment processing engine & idempotency
+
+### Done
+
+- Branched `feature/phase-3-payments` from Phase 2 tip.
+- Flyway `V3`–`V7`: payments schema, idempotency records, auth/capture/cancel columns, list indexes; `schema_phase = phase-3`.
+- JWT-owner payment APIs: create (required `Idempotency-Key`), get, filtered paginated list, authorize, capture, cancel.
+- Postgres-backed idempotency (replay + fingerprint conflict); domain state machine; `@Version` + row locks; deterministic simulated processor.
+- API keys rejected on payment endpoints; cross-merchant access returns 404.
+- Tests: **45 passed** via `.\mvnw.cmd clean verify` (Testcontainers Postgres/Redis).
+- Docs: `AI_HANDOFF.md`, ROADMAP Phase 3 criteria, ADR-016/017, ARCHITECTURE/PRODUCT status.
+
+### Not done
+
+- Refunds, ledger, webhooks/outbox, Kafka events, risk, analytics, frontend, secret-key payment API
+
+### Next
+
+Phase 4: refunds within capture limits + ledger postings + concurrency hardening.
+
+---
+
 ## 2026-10-13 — Docs: AI development handoff
 
 ### Done

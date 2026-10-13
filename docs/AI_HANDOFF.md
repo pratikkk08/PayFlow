@@ -5,7 +5,7 @@
 
 ## Objective
 
-Simulated payment platform (portfolio): merchants, secure API keys, payments/refunds/webhooks later. **Sandbox only — no real cards or live funds.**
+Simulated payment platform (portfolio): merchants, API keys, payments (authorize/capture/cancel), refunds/webhooks later. **Sandbox only — no real cards or live funds.**
 
 ## Stack (implemented)
 
@@ -23,9 +23,9 @@ Simulated payment platform (portfolio): merchants, secure API keys, payments/ref
 
 | Item | Value |
 |------|--------|
-| Branch | `feature/phase-2-identity-merchants` |
-| Latest commit | `46d2f1a` — `feat: implement secure identity and merchant API access` |
-| Also | `main` @ `feb8bba` (Phase 0); `feature/phase-1-foundation` @ `75e8b55` |
+| Branch | `feature/phase-3-payments` |
+| Latest commit | `feat: implement payment processing engine and idempotency` (confirm with `git log -1`) |
+| Also | `main` @ `feb8bba` (Phase 0); Phase 1 @ `75e8b55`; Phase 2 @ `46d2f1a` |
 | Remote | None configured; do not push unless asked |
 
 ## Completed phases
@@ -35,14 +35,23 @@ Simulated payment platform (portfolio): merchants, secure API keys, payments/ref
 | 0 | Done | Docs, layout, `.gitignore`, `.env.example` |
 | 1 | Done | Boot app, Compose, Flyway V1, ping, deny-by-default security |
 | 2 | Done | Identity, merchants, API keys, JWT/refresh, OpenAPI, rate limit |
+| 3 | Done | Payments schema, idempotent create, authorize/capture/cancel, list/get |
 
-**Not started:** Phase 3+ (payments, refunds, ledger, webhooks/outbox, risk, analytics, React UI, CI).
+**Not started:** Phase 4+ (refunds, ledger, webhooks/outbox, risk, analytics, React UI, CI).
 
-## Migrations
+## Migrations (Flyway V1–V7)
 
-- `V1__baseline.sql` — `payflow_schema_meta`
-- `V2__identity_merchants_api_keys.sql` — users, roles, refresh families/tokens, merchants, memberships, api_keys, security_audit_events  
-- Runtime marker: `payflow_schema_meta.schema_phase = phase-2`
+| Version | Purpose |
+|---------|---------|
+| V1 | Baseline `payflow_schema_meta` |
+| V2 | Users, refresh, merchants, memberships, api_keys, audit |
+| V3 | `payments` table (minor units, status check, optimistic `version`) |
+| V4 | `payment_idempotency_records` |
+| V5 | Auth columns (`failure_code`, `authorized_at`, `processor_ref`) |
+| V6 | Capture/cancel timestamps |
+| V7 | List indexes (`merchant_id, created_at, id`) |
+
+Runtime marker: `payflow_schema_meta.schema_phase = phase-3`.
 
 ## APIs (live)
 
@@ -50,24 +59,35 @@ Public: `POST /api/v1/auth/{register,login,refresh,logout}`, `GET /api/v1/system
 
 JWT user: `GET /api/v1/users/me`; merchants CRUD; API key create/list/revoke.
 
-Secret API key (`Bearer sk_test_…`): `GET /api/v1/integrations/me`.
+**JWT payments (owner only):**
 
-Publishable `pk_test_…` cannot authenticate. Cross-merchant access → **404**.
+- `POST /api/v1/payments` — create (`Idempotency-Key` required); money = `amountMinor` + `INR`
+- `GET /api/v1/payments/{id}` — get
+- `GET /api/v1/payments?merchantId=&status=&createdFrom=&createdTo=&page=&size=` — list
+- `POST /api/v1/payments/{id}/authorize` — simulated auth → `AUTHORIZED` or `FAILED`
+- `POST /api/v1/payments/{id}/capture` — `AUTHORIZED` → `CAPTURED`
+- `POST /api/v1/payments/{id}/cancel` — `CREATED`/`AUTHORIZED` → `CANCELLED`
+
+Secret API key (`Bearer sk_test_…`): `GET /api/v1/integrations/me` only — **not** payment endpoints (403).
+
+Cross-merchant access → **404**. Publishable `pk_test_…` cannot authenticate.
 
 ## Key decisions (see `DECISIONS.md`)
 
-- Modular monolith; Postgres SoT; money as minor units later.
-- Boot **4.1.1**; Jackson **3** `JsonMapper`.
-- RS256 access JWT + hashed refresh rotation/reuse revoke (ADR-013).
-- API secrets: HMAC-SHA256(pepper, raw) (ADR-014).
-- Auth rate limit fail-closed without Redis (ADR-015).
-- Kafka Compose optional; Spring Kafka wiring deferred.
+- Modular monolith; Postgres SoT; money as integer minor units (ADR-003).
+- Two-step flow: `CREATED` → `AUTHORIZED` → `CAPTURED`; cancel uses `CANCELLED` (not `VOIDED`).
+- Idempotency in Postgres: unique `(merchant_id, operation, key)`; fingerprint conflict → 409 (ADR-016).
+- Domain state machine + `@Version` + `SELECT … FOR UPDATE` on transitions.
+- Deterministic simulated processor (decline when merchant reference ends with `-decline`).
+- Jackson **3** `JsonMapper`; Boot **4.1.1**.
 
 ## Known limits
 
-- No email verification; no ADMIN grant endpoint; no payments yet.
+- No refunds, ledger, webhooks, outbox, Kafka domain events, risk, or analytics.
+- Currency locked to `INR` in schema/check.
+- Payment create/lifecycle is JWT-owner only (no secret-key payment API yet).
+- No email verification; no ADMIN grant endpoint.
 - Logout does not denylist access JWTs until expiry.
-- JSON tokens for API/testing — browser cookie/CSRF strategy deferred.
 - Host Postgres often occupies **5432** → Compose uses **5433**.
 - Surefire: name tests `*Test.java` (not `*IT.java`).
 
@@ -85,15 +105,15 @@ cd backend
 - Ping: `http://localhost:8080/api/v1/system/ping`
 - Swagger (local): `http://localhost:8080/swagger-ui.html`
 - JWT PEMs auto-create under `backend/local-secrets/` (gitignored) on local profile
-- Last verified: **12 tests passed** (`mvnw clean verify`); Phase 2 E2E against Compose succeeded
+- Last verified: **45 tests passed**, 0 failed (`mvnw clean verify`, 2026-10-13)
 
 ## Current / next task
 
-- **Current:** Phase 2 complete on `feature/phase-2-identity-merchants` (`46d2f1a`). Handoff docs prepared.
-- **Next (Phase 3):** Simulated payment state machine — minor units, idempotency keys, authorize/capture/fail transitions, optimistic locking, Testcontainers. Still no real card processing. Branch from latest Phase 2 commit when starting.
+- **Current:** Phase 3 complete on `feature/phase-3-payments`. Do not start Phase 4 unless asked.
+- **Next (Phase 4):** Refunds within capture limits; ledger postings; idempotent refunds; concurrency invariants. Still no real card processing.
 
 ## First actions in a new chat
 
 1. Read `AGENTS.md` + this file.  
 2. `git status` / confirm branch.  
-3. Implement **Phase 3 only** unless the user expands scope.
+3. Implement **Phase 4 only** unless the user expands scope.

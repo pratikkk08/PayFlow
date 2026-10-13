@@ -82,15 +82,15 @@ Exact schema will be introduced via Flyway in implementation phases.
 | `FAILED` | Terminal failure (decline/validation/risk) |
 | `CANCELLED` | Abandoned before auth (if needed) |
 
-**MVP simplification option:** single-step `CREATED` → `CAPTURED` | `FAILED`, with `AUTHORIZED`/`VOIDED` added when two-step flows are implemented. The roadmap should pick one path in Phase 3 and record it in [DECISIONS.md](DECISIONS.md).
+**Phase 3 choice:** two-step authorize/capture (not single-step). Cancellation uses status `CANCELLED` (from `CREATED` or `AUTHORIZED`). Status `VOIDED` is not used. See [DECISIONS.md](DECISIONS.md) ADR-017.
 
-### Allowed transitions (two-step model)
+### Allowed transitions (implemented)
 
 ```
 CREATED → AUTHORIZED → CAPTURED
 CREATED → FAILED
-AUTHORIZED → VOIDED
-AUTHORIZED → FAILED   (rare processor failure on capture)
+CREATED → CANCELLED
+AUTHORIZED → CANCELLED
 ```
 
 Refunds reference `CAPTURED` payments only:
@@ -222,4 +222,4 @@ See also [API_AUTHENTICATION.md](API_AUTHENTICATION.md) and [SECURITY.md](SECURI
 
 ## 14. Explicit honesty
 
-Domain entities, payment state machines, webhooks, and Kafka consumers remain **planned** until later phases. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Payment create/authorize/capture/cancel and Postgres idempotency are **implemented** (Phase 3). Refunds, ledger, webhooks, and Kafka consumers remain **planned**. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
