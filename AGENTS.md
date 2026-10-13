@@ -1,119 +1,57 @@
 # PayFlow — Agent Instructions
 
-Persistent context for AI coding agents working on this repository. Read this file at the start of every session.
+Persistent context for AI coding agents. Read this at the start of every session. For session-specific progress, read [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md).
 
 ## What PayFlow Is
 
-PayFlow is a **portfolio-grade, production-inspired fintech platform** demonstrating merchant accounts, secure API keys, **simulated** payment processing, refunds, signed webhooks, transaction analytics, fraud-risk rules, and event-driven processing.
+Portfolio-grade **simulated** fintech platform: merchants, API keys, payments, refunds, webhooks, risk, analytics. **Never** process real cards or live funds. Never claim live payment capability.
 
-**Payments are simulated.** Never process real card details or live customer funds. Never claim live payment capability.
+## Durable conventions
 
-## Current phase
-
-Phase 2 (identity/merchants/API keys) is complete when recorded in `docs/DEVELOPMENT_LOG.md` and `docs/ROADMAP.md`. Do not invent payments or frontend features.
-
-## Durable development conventions (Phase 1+)
-
-- Prefer **Spring Boot 4.x** versions that resolve on Maven Central (e.g. `4.1.1`, not `4.1.1.RELEASE`).
-- Jackson **3** (`tools.jackson.databind.json.JsonMapper`) is the Boot 4 JSON bean — do not inject `com.fasterxml.jackson.databind.ObjectMapper`.
-- Set session `JAVA_HOME` via `scripts/set-java-home.ps1` when unset.
-- Compose Postgres host port **5433**; Redis **6379**; optional Kafka profile on **9094**.
-- Kafka Spring autoconfig remains **excluded** until messaging phases.
-- JWT RSA PEMs under `backend/local-secrets/` (gitignored); API key pepper via env.
-- Classify Bearer credentials: JWT vs `sk_test_`/`pk_test_` — never conflate.
-- Surefire discovers `*Test.java` (not `*IT.java` unless Failsafe is configured).
-- Auth rate limiting fails closed when Redis is down.
-
-## Technology stack
-
-| Layer | Choice |
-|-------|--------|
-| Backend | Java 21, Spring Boot, Spring Security, Spring Data JPA, Maven Wrapper, Flyway, Bean Validation |
-| Database | PostgreSQL (authoritative financial state) |
-| Cache / rate limit | Redis |
-| Messaging | Apache Kafka |
-| Frontend | React, TypeScript, Vite, Tailwind CSS |
-| Testing | JUnit 5, Mockito, Testcontainers; frontend unit tests; Playwright later |
-| API docs | OpenAPI / Swagger |
-| Infra | Docker Compose, GitHub Actions; cloud later |
-| Observability | Structured logs, Spring Boot Actuator; metrics later |
+- **Stack:** Java 21, Spring Boot **4.1.1** (Maven Central version string — not `4.1.1.RELEASE`), modular monolith.
+- **Jackson 3:** inject `tools.jackson.databind.json.JsonMapper` — not `com.fasterxml.jackson.databind.ObjectMapper`.
+- **Money:** integer minor units + ISO currency; never `float`/`double`.
+- **Postgres is SoT** for financial state; Redis is cache/rate-limit only.
+- **Ports:** Postgres host **5433**, Redis **6379**, Kafka (optional Compose profile) **9094**, app **8080**.
+- **Kafka:** Spring `KafkaAutoConfiguration` stays excluded until messaging phases; design for at-least-once + idempotent consumers.
+- **Auth:** classify Bearer JWT vs `sk_test_`/`pk_test_` — never conflate. JWT PEMs in `backend/local-secrets/` (gitignored). API-key pepper via env.
+- **Auth rate limit:** fail closed if Redis is down.
+- **Schema:** Flyway owns DDL; Hibernate `ddl-auto=validate`.
+- **Tests:** Surefire discovers `*Test.java` (not `*IT.java` unless Failsafe is configured). Prefer Testcontainers for Postgres/Redis.
+- **OS:** PowerShell-compatible commands; keep Compose light for ~16 GB RAM.
+- **Secrets:** never commit `.env`, PEMs, tokens, raw API secrets, or real PII.
 
 ## Architecture principles
 
-1. **Modular monolith first** — clear packages/modules, not microservices until justified.
-2. **Domain boundaries** — identity, merchants, payments, refunds, webhooks, risk, ledger, analytics, notifications.
-3. **PostgreSQL is source of truth** for financial transaction state; Redis is cache/rate-limit only.
-4. **Money** — integer minor units (preferred) or `BigDecimal` with documented currency rules; never `float`/`double`.
-5. **Reliability** — idempotency, concurrency safety, transactional integrity, auditability; outbox for event publication when messaging lands.
-6. **Payment state machine** — no arbitrary status transitions.
-7. **Secrets** — never store raw API secrets or passwords in plaintext (hash/encrypt as appropriate).
-8. **Kafka** — at-least-once consumers; idempotent handlers. Do not claim exactly-once delivery.
-9. **Never commit** passwords, tokens, API secrets, real PII/financial data, or `.env` files.
-10. **Sandbox only** — mock/simulated processors only.
+1. Modular monolith with domain packages: identity, merchants, payments, refunds, webhooks, risk, ledger, analytics, notifications.
+2. Payment state machine — no arbitrary status transitions.
+3. Idempotency, optimistic locking, transactional integrity; outbox when events land.
+4. Sandbox/mock processors only.
+5. Inspect existing code before editing; match style; no drive-by refactors.
 
-## Coding standards
+## Safety
 
-- Inspect existing files before creating or changing anything.
-- Prefer officially maintained, stable, compatible dependencies.
-- Avoid unnecessary abstractions, premature microservices, and speculative frameworks.
-- Prefer clear package boundaries and explicit domain language.
-- Keep Docker Compose resource usage practical for a ~16 GB Windows laptop.
-- Prefer PowerShell-compatible commands on Windows.
-- Match existing style when application code exists; do not drive-by refactor unrelated files.
-- Do not add docs the user did not ask for beyond agreed project docs.
+- No real card data, live gateways, or paid cloud without approval.
+- No force-push, hard reset, or history rewrite without approval.
+- Do not push or commit unless the user asks (except agreed doc checkpoints).
+- Do not claim Phase N complete without meeting its acceptance criteria.
 
-## Safety requirements
+## Workflow
 
-- No real card data, live payment gateways, or paid cloud resources without explicit approval.
-- No destructive Git operations (`push --force`, hard reset, history rewrite) without explicit approval.
-- Ask before installing system-wide software or making external cloud changes.
-- Keep development local until deployment is explicitly requested.
-- Never delete valuable files without approval.
+1. Read `AGENTS.md` + `docs/AI_HANDOFF.md`, then phase docs under `docs/`.
+2. Check Git status; work on the phase branch.
+3. Implement incrementally; run real tests; update `DEVELOPMENT_LOG.md` / `DECISIONS.md` when meaningful.
+4. Report files changed, verification results, blockers, and next task.
 
-## Testing policy
+## Docs index
 
-- Do not silently skip failing tests or fabricate command output.
-- Prefer Testcontainers for integration tests involving PostgreSQL/Redis/Kafka when infrastructure is in place.
-- Unit-test domain logic (state machine, money, idempotency) independently of infrastructure.
-- Report real failures and blockers; fix or document them honestly.
-
-## Preferred AI workflow
-
-1. Read `AGENTS.md`, then the relevant docs under `docs/` for the current phase.
-2. Inspect the workspace and Git status before editing.
-3. Work incrementally with clear acceptance criteria.
-4. Generate real files and run safe verification commands.
-5. Update `docs/DEVELOPMENT_LOG.md` and `docs/DECISIONS.md` when meaningful work or decisions land.
-6. Do not expand scope beyond the requested phase unless the user asks.
-7. When finished, report created/modified files, verification results, blockers, and the recommended next phase task.
-
-## Repository layout (target)
-
-```
-backend/          Spring Boot modular monolith
-frontend/         React + TypeScript (Vite)
-infra/            Docker Compose and infra assets
-scripts/          Local helper scripts
-docs/             Product, architecture, roadmap, decisions, logs
-.github/workflows CI workflows (added when CI is introduced)
-```
-
-## Documentation index
-
-| Document | Purpose |
-|----------|---------|
-| [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Goals, non-goals, MVP, future features |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, entities, lifecycle, consistency |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Phased milestones and acceptance criteria |
-| [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | Chronological implementation log |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records |
-| [docs/SETUP.md](docs/SETUP.md) | Local setup instructions |
-| [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md) | Verified tool versions and issues |
-| [docs/SECURITY.md](docs/SECURITY.md) | Security controls and limitations |
-| [docs/API_AUTHENTICATION.md](docs/API_AUTHENTICATION.md) | JWT, refresh, and API-key auth |
-
-## Explicit non-goals for agents
-
-- Do not build real payment processing.
-- Do not push to remotes or create commits unless the user explicitly asks.
-- Do not claim Phase N is complete without meeting that phase’s acceptance criteria.
+| Doc | Purpose |
+|-----|---------|
+| [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md) | Current progress handoff (start here each new chat) |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Phases and acceptance criteria |
+| [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | Chronological log |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Target design |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | ADRs |
+| [docs/SETUP.md](docs/SETUP.md) | How to run locally |
+| [docs/API_AUTHENTICATION.md](docs/API_AUTHENTICATION.md) | JWT / API-key auth |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security controls and limits |

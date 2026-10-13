@@ -4,6 +4,20 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-13 — Docs: AI development handoff
+
+### Done
+
+- Condensed `AGENTS.md` to durable conventions; pointed agents at `docs/AI_HANDOFF.md`.
+- Added `docs/AI_HANDOFF.md` summarizing completed Phases 0–2, Git tip (`46d2f1a` on `feature/phase-2-identity-merchants`), APIs, migrations, run/test commands, and Phase 3 next step.
+- No application logic changes.
+
+### Next
+
+Phase 3: simulated payments state machine + idempotency (new branch from Phase 2 tip).
+
+---
+
 ## 2026-10-12 — Phase 2: Identity, merchants & secure API keys
 
 ### Done
