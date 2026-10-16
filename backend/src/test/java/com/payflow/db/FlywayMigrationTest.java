@@ -124,11 +124,6 @@ class FlywayMigrationTest {
 
 	@Test
 	void flywayAppliesRefundsMigration() {
-		String phase = jdbcTemplate.queryForObject(
-				"SELECT schema_phase FROM payflow_schema_meta WHERE id = 1",
-				String.class);
-		assertThat(phase).isEqualTo("phase-4");
-
 		Integer refunds = jdbcTemplate.queryForObject(
 				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'refunds'",
 				Integer.class);
@@ -188,6 +183,88 @@ class FlywayMigrationTest {
 
 		Integer applied = jdbcTemplate.queryForObject(
 				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '11' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesTransactionalOutboxMigration() {
+		String phase = jdbcTemplate.queryForObject(
+				"SELECT schema_phase FROM payflow_schema_meta WHERE id = 1",
+				String.class);
+		assertThat(phase).isEqualTo("phase-5");
+
+		Integer outbox = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'outbox_events'",
+				Integer.class);
+		assertThat(outbox).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '12' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesOutboxClaimTokenMigration() {
+		Integer column = jdbcTemplate.queryForObject(
+				"""
+						SELECT COUNT(*) FROM information_schema.columns
+						WHERE table_name = 'outbox_events' AND column_name = 'claim_token'
+						""",
+				Integer.class);
+		assertThat(column).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '13' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesProcessedEventsMigration() {
+		Integer table = jdbcTemplate.queryForObject(
+				"""
+						SELECT COUNT(*) FROM information_schema.tables
+						WHERE table_name = 'processed_events'
+						""",
+				Integer.class);
+		assertThat(table).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '14' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesWebhookEndpointsMigration() {
+		Integer table = jdbcTemplate.queryForObject(
+				"""
+						SELECT COUNT(*) FROM information_schema.tables
+						WHERE table_name = 'webhook_endpoints'
+						""",
+				Integer.class);
+		assertThat(table).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '15' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesWebhookDeliveriesMigration() {
+		Integer table = jdbcTemplate.queryForObject(
+				"""
+						SELECT COUNT(*) FROM information_schema.tables
+						WHERE table_name = 'webhook_deliveries'
+						""",
+				Integer.class);
+		assertThat(table).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '16' AND success = TRUE",
 				Integer.class);
 		assertThat(applied).isEqualTo(1);
 	}

@@ -23,6 +23,24 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
     admin:
       fail-fast: false
+      auto-create: false
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        request.timeout.ms: 10000
+        delivery.timeout.ms: 120000
+        linger.ms: 5
+        client.id: payflow-outbox-publisher
+    consumer:
+      group-id: payflow-domain-events-internal
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/payflow}
     username: ${DATABASE_USERNAME:payflow}
@@ -45,12 +63,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never
       probes:
         enabled: true
+  health:
+    kafka:
+      enabled: ${PAYFLOW_KAFKA_HEALTH_ENABLED:false}
   info:
     env:
       enabled: true
@@ -63,8 +84,47 @@ springdoc:
     enabled: false
 
 payflow:
+  operations:
+    metrics-refresh-enabled: true
+    metrics-refresh-ms: 15000
   kafka:
     enabled: ${PAYFLOW_KAFKA_ENABLED:false}
+    consumer:
+      # Requires payflow.kafka.enabled=true. Records validated events only (no money side effects).
+      enabled: ${PAYFLOW_KAFKA_CONSUMER_ENABLED:false}
+      identity: payflow-domain-events-recorder
+      group-id: payflow-domain-events-internal
+      topic: payflow.domain-events.v1
+      dlt-topic: payflow.domain-events.v1.dlt
+      max-attempts: 3
+      backoff-interval-ms: 500
+  outbox:
+    publisher:
+      enabled: false
+      scheduling-enabled: true
+      topic: payflow.domain-events.v1
+      batch-size: 20
+      poll-interval-ms: 2000
+      lease-seconds: 30
+      max-attempts: 8
+      send-timeout-ms: 10000
+      backoff-initial-ms: 2000
+      backoff-max-ms: 300000
+  webhooks:
+    delivery:
+      # Outbound signed HTTPS — off by default. Jobs may still be enqueued from the consumer.
+      enabled: ${PAYFLOW_WEBHOOK_DELIVERY_ENABLED:false}
+      scheduling-enabled: true
+      batch-size: 20
+      poll-interval-ms: 2000
+      lease-seconds: 30
+      max-attempts: 8
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
+      overall-timeout-ms: 10000
+      max-response-bytes: 8192
+      backoff-initial-ms: 2000
+      backoff-max-ms: 300000
   security:
     jwt:
       issuer: ${JWT_ISSUER:payflow}
@@ -77,6 +137,9 @@ payflow:
       ttl: ${REFRESH_TOKEN_TTL:7d}
     api-key:
       hash-pepper: ${API_KEY_HASH_PEPPER:change-me-local-pepper}
+    webhook:
+      # Base64 of exactly 32 raw bytes (AES-256-GCM). Never commit real keys.
+      encryption-key-base64: ${WEBHOOK_SECRET_ENCRYPTION_KEY:}
     rate-limit:
       enabled: true
       auth-requests-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:30}

@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -31,13 +32,16 @@ public class SecurityConfig {
 	private final ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
 	private final AuthRateLimitFilter authRateLimitFilter;
 	private final PayflowBearerTokenResolver bearerTokenResolver;
+	private final JwtAuthenticationConverter jwtAuthenticationConverter;
 
 	public SecurityConfig(ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
 			AuthRateLimitFilter authRateLimitFilter,
-			PayflowBearerTokenResolver bearerTokenResolver) {
+			PayflowBearerTokenResolver bearerTokenResolver,
+			JwtAuthenticationConverter jwtAuthenticationConverter) {
 		this.apiKeyAuthenticationFilter = apiKeyAuthenticationFilter;
 		this.authRateLimitFilter = authRateLimitFilter;
 		this.bearerTokenResolver = bearerTokenResolver;
+		this.jwtAuthenticationConverter = jwtAuthenticationConverter;
 	}
 
 	@Bean
@@ -53,6 +57,8 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/api/v1/system/ping").permitAll()
 						.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+						.requestMatchers("/actuator/metrics", "/actuator/metrics/**").hasRole("ADMIN")
+						.requestMatchers("/api/v1/internal/**").hasRole("ADMIN")
 						.requestMatchers(
 								"/api/v1/auth/register",
 								"/api/v1/auth/login",
@@ -64,7 +70,7 @@ public class SecurityConfig {
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth2 -> oauth2
 						.bearerTokenResolver(bearerTokenResolver)
-						.jwt(Customizer.withDefaults())
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
 						.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
 				.exceptionHandling(ex -> ex
 						.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))

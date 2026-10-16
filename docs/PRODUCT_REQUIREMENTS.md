@@ -1,6 +1,6 @@
 # PayFlow — Product Requirements
 
-**Status:** Phase 4 refunds + double-entry ledger implemented; webhooks/outbox still planned  
+**Status:** Phase 5 outbox, Kafka, and signed webhooks implemented; risk and analytics not started  
 **Last updated:** 2026-10-16
 
 ## 1. Vision

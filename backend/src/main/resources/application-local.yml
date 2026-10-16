@@ -1,6 +1,18 @@
-# Local development against Docker Compose (Postgres + Redis).
+# Local development against Docker Compose (Postgres + Redis; Kafka optional).
 
 payflow:
+  kafka:
+    enabled: ${PAYFLOW_KAFKA_ENABLED:false}
+    consumer:
+      # Enable with Kafka: PAYFLOW_KAFKA_ENABLED=true and PAYFLOW_KAFKA_CONSUMER_ENABLED=true
+      enabled: ${PAYFLOW_KAFKA_CONSUMER_ENABLED:false}
+  outbox:
+    publisher:
+      # Enable with Kafka: PAYFLOW_KAFKA_ENABLED=true (and Compose --profile kafka)
+      enabled: ${PAYFLOW_OUTBOX_PUBLISHER_ENABLED:${PAYFLOW_KAFKA_ENABLED:false}}
+  webhooks:
+    delivery:
+      enabled: ${PAYFLOW_WEBHOOK_DELIVERY_ENABLED:false}
   security:
     jwt:
       auto-generate-keys: true
@@ -8,6 +20,9 @@ payflow:
       public-key-path: local-secrets/jwt-public.pem
     api-key:
       hash-pepper: ${API_KEY_HASH_PEPPER:local-dev-api-key-pepper-change-me}
+    webhook:
+      # Local-only AES key (Base64 of "PayFlowLocalWebhookEncKey32byte!"). Override via env.
+      encryption-key-base64: ${WEBHOOK_SECRET_ENCRYPTION_KEY:UGF5Rmxvd0xvY2FsV2ViaG9va0VuY0tleTMyYnl0ZSE=}
 
 springdoc:
   swagger-ui:

@@ -11,11 +11,11 @@ import com.payflow.shared.error.ApiException;
 
 @Component
 @Profile("test")
-class TestLedgerPostingFaultInjector implements LedgerPostingFaultInjector {
+public class TestLedgerPostingFaultInjector implements LedgerPostingFaultInjector {
 
 	private final AtomicBoolean failNext = new AtomicBoolean(false);
 
-	void failNextPost() {
+	public void failNextPost() {
 		failNext.set(true);
 	}
 

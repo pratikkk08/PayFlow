@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Kafka remains on the classpath for later phases. Phase 1 keeps brokers optional
- * unless {@code payflow.kafka.enabled=true}.
+ * Kafka is optional: payment/refund APIs never require a broker. Outbox publishing
+ * is separately gated by {@code payflow.outbox.publisher.enabled}.
  */
 @Configuration
 public class KafkaPresenceConfig {
@@ -19,8 +19,24 @@ public class KafkaPresenceConfig {
 	@Bean
 	@ConditionalOnProperty(name = "payflow.kafka.enabled", havingValue = "false", matchIfMissing = true)
 	ApplicationRunner kafkaDisabledNotice() {
-		return args -> log.info("Kafka auto-configuration is disabled (payflow.kafka.enabled=false). "
-				+ "Start Compose profile 'kafka' and set PAYFLOW_KAFKA_ENABLED=true to enable.");
+		return args -> log.info("Kafka remains optional (payflow.kafka.enabled=false). "
+				+ "Start Compose profile 'kafka', set PAYFLOW_KAFKA_ENABLED=true, and enable "
+				+ "payflow.outbox.publisher.enabled to relay outbox events.");
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "payflow.outbox.publisher.enabled", havingValue = "true")
+	ApplicationRunner outboxPublisherEnabledNotice() {
+		return args -> log.info("Outbox Kafka publisher enabled (topic payflow.domain-events.v1); "
+				+ "delivery is at-least-once.");
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "payflow.kafka.consumer.enabled", havingValue = "false", matchIfMissing = true)
+	ApplicationRunner kafkaConsumerDisabledNotice() {
+		return args -> log.info("Domain-event Kafka consumer disabled "
+				+ "(payflow.kafka.consumer.enabled=false). Set PAYFLOW_KAFKA_CONSUMER_ENABLED=true "
+				+ "with Kafka to record validated events via processed_events.");
 	}
 
 }

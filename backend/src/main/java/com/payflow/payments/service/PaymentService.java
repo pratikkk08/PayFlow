@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.payflow.ledger.service.LedgerPostingService;
 import com.payflow.merchants.service.MerchantService;
+import com.payflow.outbox.domain.OutboxEventType;
+import com.payflow.outbox.service.OutboxEventWriter;
 import com.payflow.payments.api.dto.CreatePaymentRequest;
 import com.payflow.payments.api.dto.PaymentPageResponse;
 import com.payflow.payments.api.dto.PaymentResponse;
@@ -42,6 +44,7 @@ public class PaymentService {
 	private final IdempotencyKeyValidator idempotencyKeyValidator;
 	private final SimulatedPaymentProcessor paymentProcessor;
 	private final LedgerPostingService ledgerPostingService;
+	private final OutboxEventWriter outboxEventWriter;
 	private final JsonMapper jsonMapper;
 
 	public PaymentService(PaymentRepository paymentRepository,
@@ -50,6 +53,7 @@ public class PaymentService {
 			IdempotencyKeyValidator idempotencyKeyValidator,
 			SimulatedPaymentProcessor paymentProcessor,
 			LedgerPostingService ledgerPostingService,
+			OutboxEventWriter outboxEventWriter,
 			JsonMapper jsonMapper) {
 		this.paymentRepository = paymentRepository;
 		this.idempotencyRepository = idempotencyRepository;
@@ -57,6 +61,7 @@ public class PaymentService {
 		this.idempotencyKeyValidator = idempotencyKeyValidator;
 		this.paymentProcessor = paymentProcessor;
 		this.ledgerPostingService = ledgerPostingService;
+		this.outboxEventWriter = outboxEventWriter;
 		this.jsonMapper = jsonMapper;
 	}
 
@@ -122,6 +127,8 @@ public class PaymentService {
 			throw invalidTransition(ex.getMessage());
 		}
 		paymentRepository.saveAndFlush(payment);
+		outboxEventWriter.appendPaymentEvent(payment,
+				result.approved() ? OutboxEventType.PAYMENT_AUTHORIZED : OutboxEventType.PAYMENT_FAILED);
 		return toResponse(payment);
 	}
 
@@ -139,6 +146,7 @@ public class PaymentService {
 		}
 		paymentRepository.saveAndFlush(payment);
 		ledgerPostingService.postPaymentCapture(payment);
+		outboxEventWriter.appendPaymentEvent(payment, OutboxEventType.PAYMENT_CAPTURED);
 		return toResponse(payment);
 	}
 
@@ -155,6 +163,7 @@ public class PaymentService {
 			throw invalidTransition(ex.getMessage());
 		}
 		paymentRepository.saveAndFlush(payment);
+		outboxEventWriter.appendPaymentEvent(payment, OutboxEventType.PAYMENT_CANCELLED);
 		return toResponse(payment);
 	}
 
@@ -264,6 +273,8 @@ public class PaymentService {
 			throw new ApiException(HttpStatus.CONFLICT, "conflict",
 					"A payment with this merchant reference already exists");
 		}
+
+		outboxEventWriter.appendPaymentEvent(payment, OutboxEventType.PAYMENT_CREATED);
 
 		PaymentResponse response = toResponse(payment);
 		String responseJson;

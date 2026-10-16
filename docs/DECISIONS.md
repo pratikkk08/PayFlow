@@ -78,11 +78,11 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 
 ## ADR-008: Transactional outbox for domain events
 
-- **Date:** 2026-10-12
-- **Status:** Accepted (implementation in Phase 5)
+- **Date:** 2026-10-12 (schema foundation 2026-10-16)
+- **Status:** Accepted (Flyway V12 schema landed; publisher not yet wired)
 - **Context:** Publishing to Kafka inside a DB transaction is unreliable; publishing after commit without a store risks lost events.
-- **Decision:** Write outbox rows in the same PostgreSQL transaction as state changes; a publisher process relays to Kafka.
-- **Consequences:** Extra table and publisher; dual-write races avoided.
+- **Decision:** Persist `outbox_events` in the same PostgreSQL transaction as state changes. Rows carry stable event id, aggregate type/id, event type + schema version, optional merchant id, JSONB payload, status (`PENDING`/`PROCESSING`/`PUBLISHED`/`FAILED`), attempt metadata, and `claim_expires_at` for crash-safe concurrent claiming. Future Kafka key = `aggregate_id` (ordering); consumers dedupe by event id. Exhausted `FAILED` rows remain inspectable and can be manually requeued to `PENDING`.
+- **Consequences:** Extra table and later publisher; dual-write races avoided; at-least-once only (ADR-004).
 
 ---
 
@@ -193,3 +193,23 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 - **Context:** Capture and refund money movements need an auditable, append-only posting model without real settlement. Multi-row debit/credit balance cannot be expressed as a single-row CHECK.
 - **Decision:** Introduce `ledger_accounts`, `ledger_transactions`, and `ledger_entries` (Flyway V10). Account types: platform `PROCESSOR_CLEARING` (`merchant_id` NULL) and per-merchant `MERCHANT_PAYABLE`. Sources: `PAYMENT_CAPTURE` / `REFUND` with unique `(source_type, source_id)`. Currency locked to INR minor units. Conventions: capture = debit clearing / credit payable; successful refund = reverse. `LedgerPostingService` writes the transaction and balanced entry pair in the caller's DB transaction (propagation REQUIRED, never REQUIRES_NEW) and verifies Σ debits = Σ credits before commit. Schema CHECK covers per-row positivity and enums only — **the database does not already guarantee balanced postings**.
 - **Consequences:** No public update/delete of entries; duplicate source posting is rejected by unique constraint + service check; posting failure rolls back the payment capture or refund in the same TX.
+
+---
+
+## ADR-020: Webhook secrets encrypted at rest; SSRF deferred to delivery
+
+- **Date:** 2026-10-16
+- **Status:** Accepted
+- **Context:** Merchants need registered HTTPS webhook endpoints with per-endpoint signing secrets. Secrets must not be recoverable from list APIs or logs. Outbound delivery is SSRF-sensitive.
+- **Decision:** Store secrets as AES-256-GCM ciphertext keyed by `WEBHOOK_SECRET_ENCRYPTION_KEY` (env). Return plaintext once on create. Registration validates URL shape only (HTTPS, no credentials/fragments/IP literals/blocked hostnames) and never contacts the URL. Future delivery must re-resolve DNS every attempt, block private/metadata addresses, refuse redirects, and re-load endpoints from Postgres. Secret rotation API is deferred; design is immediate replace + `secret_rotated_at` (optional grace window later).
+- **Consequences:** Key loss requires re-issuing secrets; registration is not a complete SSRF control.
+
+---
+
+## ADR-021: Signed webhook delivery with IP-pinned HTTPS
+
+- **Date:** 2026-10-16
+- **Status:** Accepted
+- **Context:** Merchant webhooks need at-least-once signed delivery without SSRF or blocking payment APIs.
+- **Decision:** Enqueue `webhook_deliveries` in the Kafka consumer TX with `processed_events`. A separate worker claims via `SKIP LOCKED`, commits, then POSTs. Signature base = `{unixSeconds}.{eventId}.{body}` → `X-PayFlow-Signature: v1=<hex HMAC-SHA256>`. The transport opens TCP to the already validated IP only, then TLS with SNI and certificate checks for the original hostname, and sends that hostname in the HTTP `Host` header. Redirects are rejected. Retry 429/5xx/timeouts with backoff; other 4xx are permanent failures. Delivery disabled unless `payflow.webhooks.delivery.enabled=true`.
+- **Consequences:** Ordinary HTTP clients that re-resolve hostnames after validation are unsuitable; custom transport required.

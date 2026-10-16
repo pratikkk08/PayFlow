@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 4 — refunds & ledger.** Identity/merchants (Phase 2), simulated payments with idempotency (Phase 3), and Phase 4 refunds (full/partial, capacity locks, idempotency) plus atomic double-entry ledger postings for capture/refund are implemented.
+**Phase 5 — outbox, Kafka, and signed webhooks.** Identity through ledger (Phases 2–4) plus transactional outbox, Kafka publish/consume, webhook registration, and signed delivery are implemented. Outbound webhook HTTP and the Kafka publisher stay off unless explicitly enabled.
 
-Not yet built: webhooks/outbox/Kafka domain events, risk, analytics, React dashboard.
+Not yet built: risk rules, analytics, React dashboard, CI, webhook secret rotation, and a self-service ADMIN grant.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -55,7 +55,7 @@ PayFlow starts as a **modular monolith**: one deployable Spring Boot application
 - **PostgreSQL** is the authoritative store for financial transaction state.
 - **Redis** supports caching and rate limiting — not financial truth.
 - **Kafka** carries domain events; consumers must be idempotent under at-least-once delivery.
-- An **outbox** pattern is planned for reliable event publication after DB commits.
+- An **outbox** in PostgreSQL is written in the same transaction as the domain change. A publisher sends to Kafka only after the broker ACK.
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -67,8 +67,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 1 | Backend skeleton, Docker Compose (Postgres/Redis/Kafka), Flyway baseline |
 | 2 | Identity & merchants, API keys |
 | 3 | Payments state machine & simulated processor |
-| 4 | Refunds, ledger, idempotency hardening ← **current** |
-| 5 | Webhooks, outbox, Kafka consumers |
+| 4 | Refunds, ledger, idempotency hardening |
+| 5 | Webhooks, outbox, Kafka consumers ← **current** |
 | 6 | Risk rules & analytics |
 | 7 | React dashboard |
 | 8 | CI, hardening, portfolio polish |

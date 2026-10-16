@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.payflow.ledger.service.LedgerPostingService;
 import com.payflow.merchants.service.MerchantService;
+import com.payflow.outbox.service.OutboxEventWriter;
 import com.payflow.payments.domain.IdempotencyRecordStatus;
 import com.payflow.payments.domain.PaymentEntity;
 import com.payflow.payments.domain.PaymentStatus;
@@ -51,6 +52,7 @@ public class RefundService {
 	private final IdempotencyKeyValidator idempotencyKeyValidator;
 	private final SimulatedRefundProcessor refundProcessor;
 	private final LedgerPostingService ledgerPostingService;
+	private final OutboxEventWriter outboxEventWriter;
 	private final JsonMapper jsonMapper;
 
 	public RefundService(PaymentRepository paymentRepository,
@@ -60,6 +62,7 @@ public class RefundService {
 			IdempotencyKeyValidator idempotencyKeyValidator,
 			SimulatedRefundProcessor refundProcessor,
 			LedgerPostingService ledgerPostingService,
+			OutboxEventWriter outboxEventWriter,
 			JsonMapper jsonMapper) {
 		this.paymentRepository = paymentRepository;
 		this.refundRepository = refundRepository;
@@ -68,6 +71,7 @@ public class RefundService {
 		this.idempotencyKeyValidator = idempotencyKeyValidator;
 		this.refundProcessor = refundProcessor;
 		this.ledgerPostingService = ledgerPostingService;
+		this.outboxEventWriter = outboxEventWriter;
 		this.jsonMapper = jsonMapper;
 	}
 
@@ -194,6 +198,7 @@ public class RefundService {
 
 		if (result.approved()) {
 			ledgerPostingService.postSuccessfulRefund(refund);
+			outboxEventWriter.appendRefundSucceeded(refund);
 		}
 
 		RefundResponse response = toResponse(refund);

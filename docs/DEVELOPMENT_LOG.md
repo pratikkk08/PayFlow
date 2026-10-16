@@ -4,6 +4,29 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-16 — Phase 5: Outbox, Kafka, and signed webhooks
+
+### Done
+
+- Branch `feature/phase-5-events-webhooks` from Phase 4 tip (`f28b507`).
+- Flyway V12–V16: `outbox_events` and claim tokens, `processed_events`, `webhook_endpoints`, `webhook_deliveries`. Hibernate `ddl-auto=validate`.
+- Outbox rows commit in the same transaction as payment/refund changes. Publisher waits for Kafka ACK (`acks=all`) on `payflow.domain-events.v1`. Claim tokens and expired leases keep concurrent publishers from finalizing each other's rows.
+- Consumer group `payflow-domain-events-internal` dedupes on `processed_events` and enqueues webhook jobs in that same transaction. Malformed and exhausted events go to `payflow.domain-events.v1.dlt`.
+- Webhook registration with AES-256-GCM secrets returned once. Signed delivery uses HMAC `v1`, pinned-IP TLS (SNI, PKIX, original `Host`), redirect rejection, and backoff. Delivery and Kafka stay off unless enabled.
+- Ops gauges/counters/timers and `GET /api/v1/internal/events/health` require JWT `ADMIN`. Registration does not grant ADMIN. FAILED requeue is internal and audited by id.
+- Local TLS fixture tests cover chain, SNI, hostname, pin, redirects, and read/overall timeouts. A blackhole connect-timeout off-box was not run.
+- Tests: **155 passed**, 0 failed via `.\mvnw.cmd clean verify` (Testcontainers Postgres/Redis/Kafka).
+
+### Not done
+
+- Risk rules, analytics, React UI, CI, webhook secret rotation, HTTP admin retry API
+
+### Next
+
+Phase 6: configurable risk checks and merchant analytics summaries.
+
+---
+
 ## 2026-10-16 — Phase 4: Refunds & double-entry ledger
 
 ### Done

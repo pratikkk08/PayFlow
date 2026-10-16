@@ -28,7 +28,7 @@ class PayflowBackendApplicationTests {
 		String phase = jdbcTemplate.queryForObject(
 				"SELECT schema_phase FROM payflow_schema_meta WHERE id = 1",
 				String.class);
-		assertThat(phase).isEqualTo("phase-4");
+		assertThat(phase).isEqualTo("phase-5");
 	}
 
 }

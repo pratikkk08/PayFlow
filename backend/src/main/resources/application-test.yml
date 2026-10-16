@@ -8,8 +8,20 @@ spring:
     enabled: true
 
 payflow:
+  operations:
+    metrics-refresh-enabled: false
   kafka:
     enabled: false
+    consumer:
+      enabled: false
+  outbox:
+    publisher:
+      enabled: false
+      scheduling-enabled: false
+  webhooks:
+    delivery:
+      enabled: false
+      scheduling-enabled: false
   security:
     jwt:
       auto-generate-keys: true
@@ -22,6 +34,9 @@ payflow:
       ttl: 7d
     api-key:
       hash-pepper: test-api-key-pepper-not-for-production
+    webhook:
+      # Test-only AES-256 key (Base64 of "PayFlowTestWebhookEncKey_32bytes") — not for production.
+      encryption-key-base64: UGF5Rmxvd1Rlc3RXZWJob29rRW5jS2V5XzMyYnl0ZXM=
     rate-limit:
       enabled: true
       auth-requests-per-minute: 1000

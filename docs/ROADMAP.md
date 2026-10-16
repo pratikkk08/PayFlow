@@ -98,11 +98,11 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] Outbox written in same TX as domain change
-- [ ] Publisher ships to Kafka; consumers idempotent
-- [ ] Webhook signature + delivery attempts + backoff
-- [ ] At-least-once documented; no exactly-once claims
-- [ ] Tests for signature verification and idempotent consumer
+- [x] Outbox written in same TX as domain change
+- [x] Publisher ships to Kafka; consumers idempotent
+- [x] Webhook signature + delivery attempts + backoff
+- [x] At-least-once documented; no exactly-once claims
+- [x] Tests for signature verification and idempotent consumer
 
 ---
 

@@ -11,6 +11,7 @@ public class PayflowSecurityProperties {
 	private final RefreshToken refreshToken = new RefreshToken();
 	private final ApiKey apiKey = new ApiKey();
 	private final RateLimit rateLimit = new RateLimit();
+	private final Webhook webhook = new Webhook();
 
 	public Jwt getJwt() {
 		return jwt;
@@ -26,6 +27,10 @@ public class PayflowSecurityProperties {
 
 	public RateLimit getRateLimit() {
 		return rateLimit;
+	}
+
+	public Webhook getWebhook() {
+		return webhook;
 	}
 
 	public static class Jwt {
@@ -136,6 +141,22 @@ public class PayflowSecurityProperties {
 
 		public void setFailClosedWhenRedisUnavailable(boolean failClosedWhenRedisUnavailable) {
 			this.failClosedWhenRedisUnavailable = failClosedWhenRedisUnavailable;
+		}
+	}
+
+	/**
+	 * AES-256-GCM key for webhook signing secrets at rest (Base64 of 32 raw bytes).
+	 * Env: {@code WEBHOOK_SECRET_ENCRYPTION_KEY}. Never commit real keys.
+	 */
+	public static class Webhook {
+		private String encryptionKeyBase64 = "";
+
+		public String getEncryptionKeyBase64() {
+			return encryptionKeyBase64;
+		}
+
+		public void setEncryptionKeyBase64(String encryptionKeyBase64) {
+			this.encryptionKeyBase64 = encryptionKeyBase64;
 		}
 	}
 }

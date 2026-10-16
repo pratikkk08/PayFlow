@@ -160,21 +160,18 @@ Postings are append-only double-entry rows (`ledger_transactions` + two `ledger_
 
 ## 8. Event handling and webhook delivery
 
-### Outbox → Kafka (planned)
+Topic `payflow.domain-events.v1`. Dead-letter topic `payflow.domain-events.v1.dlt`. Consumer group `payflow-domain-events-internal`. Consumer identity `payflow-domain-events-recorder`.
 
-1. Domain service commits business rows + `outbox_message`.
-2. Publisher emits to Kafka topics (e.g. `payflow.payments`, `payflow.refunds`).
-3. Consumers update projections, enqueue webhook jobs, etc.
+1. Payment and refund services insert `outbox_events` in the **same** PostgreSQL transaction as the financial change. A failed outbox write rolls the money change back.
+2. `OutboxPublisher` claims with `FOR UPDATE SKIP LOCKED` and a claim token, commits, then waits for a Kafka ACK (`acks=all`) before `PUBLISHED`. Stale tokens cannot finalize the row. Expired `PROCESSING` leases are reclaimable. Exhausted attempts become `FAILED`.
+3. `DomainEventKafkaListener` validates the envelope. Malformed events go to the DLT without a processed marker. The handler inserts `processed_events` and matching `webhook_deliveries` in one transaction. Redelivery of the same event id is a no-op.
+4. `WebhookDeliveryWorker` (off unless `payflow.webhooks.delivery.enabled=true`) claims a job, commits, then POSTs. HMAC base is `{unixSeconds}.{eventId}.{body}` with header `X-PayFlow-Signature: v1=<hex>`. The socket connects only to the DNS-validated IP. TLS uses the JVM trust store, SNI, and hostname checks for the original host, and the HTTP `Host` header is that hostname. Redirects are permanent failures. 429/5xx/timeouts retry with backoff.
 
-### Webhooks
+**Delivery guarantee:** at-least-once. Receivers must verify the signature and dedupe by event id. PayFlow does not claim exactly-once webhook delivery.
 
-1. Webhook worker loads pending deliveries.
-2. Signs body with HMAC-SHA256 using endpoint secret; includes timestamp header.
-3. POSTs with timeout; records attempt, status code, latency.
-4. Retries with exponential backoff; dead-letters after max attempts.
-5. Merchants verify signature before trusting payload.
+Registration APIs: `POST/GET/PATCH/DELETE /api/v1/merchants/{merchantId}/webhooks`. The signing secret is returned once.
 
-**Delivery guarantee:** at-least-once. Receivers must be idempotent (event id in payload).
+Operations: Micrometer gauges for pending/failed/expired outbox and webhook rows, delivery success/failure counters, and publish/delivery latency. `GET /api/v1/internal/events/health` and `/actuator/metrics` require JWT role `ADMIN`. `EventRecoveryService` can requeue terminal `FAILED` rows without an HTTP mutation API.
 
 ## 9. Security considerations
 
@@ -200,11 +197,11 @@ Postings are append-only double-entry rows (`ledger_transactions` + two `ledger_
 
 CI runs unit + integration on PR once workflows exist. Do not ignore failing tests.
 
-## 11. Observability (planned)
+## 11. Observability
 
-- Structured logging (correlation / request id).
-- Spring Boot Actuator health (DB, Redis, Kafka when configured).
-- Metrics and tracing deferred until after MVP stability.
+- Structured logs for publish and delivery outcomes. Secrets and payloads are not logged.
+- Actuator `/health` and `/info` are public. `/actuator/metrics` requires `ADMIN`.
+- Gauges refresh on an interval (`payflow.operations.metrics-refresh-ms`, default 15s). Labels are status or outcome only.
 
 ## 12. Deployment topology (local)
 
@@ -212,7 +209,7 @@ Docker Compose services (Phase 1+): `postgres`, `redis`, `kafka` (+ ZooKeeper or
 
 Resource caps should be set so a 16 GB machine remains usable.
 
-## 13. Phase 1–2 implementation notes
+## 13. Implementation notes
 
 | Area | Reality |
 |------|---------|
@@ -220,15 +217,15 @@ Resource caps should be set so a 16 GB machine remains usable.
 | Identity | Register/login, RS256 JWT, hashed refresh rotation, `/users/me` |
 | Merchants | Owner-scoped CRUD; memberships table ready for future MEMBER role |
 | API keys | `sk_test_` / `pk_test_`; secret HMAC hash; `/integrations/me` diagnostic |
-| Schema | Flyway V1–V11 (payments V3–V7; refunds V8–V9/V11; ledger V10) |
+| Schema | Flyway V1–V16; `schema_phase = phase-5` |
 | Hibernate | `ddl-auto=validate` |
-| Security | Public auth + ping + health; JWT vs API-key Bearer classification |
+| Security | Public auth + ping + health; JWT vs API-key Bearer classification; internal ops require `ADMIN` |
 | OpenAPI | springdoc **3.1.1**; Swagger UI local-only |
-| Kafka | Still excluded from Spring autoconfig |
+| Kafka | Optional. Publisher and consumer stay off until `payflow.kafka.enabled=true` (and the matching publisher/consumer flags). Bootstrap `localhost:9094` when Compose profile `kafka` is up |
 | Ports | Postgres **5433**, Redis **6379**, Kafka **9094**, app **8080** |
 
 See also [API_AUTHENTICATION.md](API_AUTHENTICATION.md) and [SECURITY.md](SECURITY.md).
 
 ## 14. Explicit honesty
 
-Payments (Phase 3) and refunds + double-entry ledger postings (Phase 4) are **implemented**. Webhooks, outbox, and Kafka consumers remain **planned**. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Phases 2–5 are **implemented** on `feature/phase-5-events-webhooks`: identity, merchants, payments, refunds, ledger, transactional outbox, Kafka publish/consume, webhook registration, and signed delivery. Risk, analytics, and the React UI are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
