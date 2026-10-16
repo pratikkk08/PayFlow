@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.payflow.ledger.service.LedgerPostingService;
 import com.payflow.merchants.service.MerchantService;
 import com.payflow.payments.api.dto.CreatePaymentRequest;
 import com.payflow.payments.api.dto.PaymentPageResponse;
@@ -40,6 +41,7 @@ public class PaymentService {
 	private final MerchantService merchantService;
 	private final IdempotencyKeyValidator idempotencyKeyValidator;
 	private final SimulatedPaymentProcessor paymentProcessor;
+	private final LedgerPostingService ledgerPostingService;
 	private final JsonMapper jsonMapper;
 
 	public PaymentService(PaymentRepository paymentRepository,
@@ -47,12 +49,14 @@ public class PaymentService {
 			MerchantService merchantService,
 			IdempotencyKeyValidator idempotencyKeyValidator,
 			SimulatedPaymentProcessor paymentProcessor,
+			LedgerPostingService ledgerPostingService,
 			JsonMapper jsonMapper) {
 		this.paymentRepository = paymentRepository;
 		this.idempotencyRepository = idempotencyRepository;
 		this.merchantService = merchantService;
 		this.idempotencyKeyValidator = idempotencyKeyValidator;
 		this.paymentProcessor = paymentProcessor;
+		this.ledgerPostingService = ledgerPostingService;
 		this.jsonMapper = jsonMapper;
 	}
 
@@ -134,6 +138,7 @@ public class PaymentService {
 			throw invalidTransition(ex.getMessage());
 		}
 		paymentRepository.saveAndFlush(payment);
+		ledgerPostingService.postPaymentCapture(payment);
 		return toResponse(payment);
 	}
 

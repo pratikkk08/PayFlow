@@ -4,6 +4,30 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-16 — Phase 4: Refunds & double-entry ledger
+
+### Done
+
+- Branched `feature/phase-4-refunds-ledger` from Phase 3 tip (`281f2a4`).
+- Flyway `V8`–`V11`: refunds, refund idempotency, ledger foundation, refund list index; `schema_phase = phase-4`.
+- JWT-owner refund APIs: create (required `Idempotency-Key`), get by id, paginated history per payment.
+- Capacity invariant: `PENDING` + `SUCCEEDED` refunds never exceed captured amount; payment row lock + concurrent tests.
+- Deterministic simulated refund processor; declined refunds release capacity and create no ledger posting.
+- Double-entry ledger: capture debit clearing / credit payable; successful refund reverses; unique `(source_type, source_id)`.
+- Ledger postings join the payment/refund TX (REQUIRED); fault injection proves rollback of domain + ledger together.
+- Tests: **89 passed**, 0 failed via `.\mvnw.cmd clean verify` (Testcontainers Postgres/Redis).
+- Docs: ROADMAP Phase 4 criteria, ADR-018/019, ARCHITECTURE/PRODUCT/README/AI_HANDOFF.
+
+### Not done
+
+- Webhooks, outbox, Kafka domain events, risk, analytics, frontend, secret-key payment/refund API
+
+### Next
+
+Phase 5: transactional outbox, Kafka publisher, signed webhook delivery with retries.
+
+---
+
 ## 2026-10-13 — Phase 3: Payment processing engine & idempotency
 
 ### Done

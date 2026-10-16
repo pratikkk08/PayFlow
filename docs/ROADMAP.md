@@ -85,10 +85,10 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] Partial/full refunds; over-refund rejected
-- [ ] Ledger entries for capture/refund
-- [ ] Idempotent refunds
-- [ ] Domain tests for balance invariants
+- [x] Partial/full refunds; over-refund rejected
+- [x] Ledger entries for capture/refund
+- [x] Idempotent refunds
+- [x] Domain tests for balance invariants
 
 ---
 

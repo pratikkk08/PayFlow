@@ -1,7 +1,7 @@
 # PayFlow — Product Requirements
 
-**Status:** Phase 3 payments (create/authorize/capture/cancel + idempotency) implemented; refunds/ledger still planned  
-**Last updated:** 2026-10-13
+**Status:** Phase 4 refunds + double-entry ledger implemented; webhooks/outbox still planned  
+**Last updated:** 2026-10-16
 
 ## 1. Vision
 
@@ -62,16 +62,18 @@ MVP is reached when Phases 1–5 acceptance criteria in [ROADMAP.md](ROADMAP.md)
 - Simulated processor outcomes: success, soft decline, hard decline, timeout/retryable failure (configurable).
 - Concurrent duplicate requests with the same idempotency key return the original result.
 
-### 5.3 Refunds
+### 5.3 Refunds (**implemented** — Phase 4)
 
-- Partial and full refunds against captured payments, within remaining refundable amount.
-- Idempotent refund creation.
-- State machine for refund lifecycle.
+- Partial and full refunds against `CAPTURED` payments only; capacity = captured − (`PENDING` + `SUCCEEDED`).
+- Idempotent refund creation (`Idempotency-Key`, Postgres-backed replay / fingerprint conflict).
+- Refund lifecycle: `PENDING` → `SUCCEEDED` | `FAILED` (no payment-level `REFUNDED` status).
+- JWT merchant owner APIs: create, get by id, paginated history per payment.
 
-### 5.4 Ledger / audit
+### 5.4 Ledger / audit (**implemented** — Phase 4)
 
-- Append-only or explicitly versioned ledger entries for money movements (or equivalent auditable posting model).
-- No silent balance mutation without a recorded entry.
+- Append-only double-entry postings for successful capture and successful refund.
+- Capture and refund domain changes commit atomically with their ledger postings; failures roll back both.
+- No ledger rows for unsuccessful authorize/capture/refund attempts; unique `(source_type, source_id)` blocks duplicates.
 
 ### 5.5 Webhooks
 

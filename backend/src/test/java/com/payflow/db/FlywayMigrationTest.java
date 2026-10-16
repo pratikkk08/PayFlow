@@ -42,11 +42,6 @@ class FlywayMigrationTest {
 
 	@Test
 	void flywayAppliesPhase3PaymentsMigration() {
-		String phase = jdbcTemplate.queryForObject(
-				"SELECT schema_phase FROM payflow_schema_meta WHERE id = 1",
-				String.class);
-		assertThat(phase).isEqualTo("phase-3");
-
 		Integer payments = jdbcTemplate.queryForObject(
 				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'payments'",
 				Integer.class);
@@ -123,6 +118,76 @@ class FlywayMigrationTest {
 
 		Integer applied = jdbcTemplate.queryForObject(
 				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '7' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesRefundsMigration() {
+		String phase = jdbcTemplate.queryForObject(
+				"SELECT schema_phase FROM payflow_schema_meta WHERE id = 1",
+				String.class);
+		assertThat(phase).isEqualTo("phase-4");
+
+		Integer refunds = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'refunds'",
+				Integer.class);
+		assertThat(refunds).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '8' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesRefundIdempotencyMigration() {
+		Integer records = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'refund_idempotency_records'",
+				Integer.class);
+		assertThat(records).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '9' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesLedgerFoundationMigration() {
+		Integer accounts = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'ledger_accounts'",
+				Integer.class);
+		assertThat(accounts).isEqualTo(1);
+
+		Integer transactions = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'ledger_transactions'",
+				Integer.class);
+		assertThat(transactions).isEqualTo(1);
+
+		Integer entries = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'ledger_entries'",
+				Integer.class);
+		assertThat(entries).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '10' AND success = TRUE",
+				Integer.class);
+		assertThat(applied).isEqualTo(1);
+	}
+
+	@Test
+	void flywayAppliesRefundListIndexMigration() {
+		Integer index = jdbcTemplate.queryForObject(
+				"""
+						SELECT COUNT(*) FROM pg_indexes
+						WHERE tablename = 'refunds' AND indexname = 'idx_refunds_payment_created_id'
+						""",
+				Integer.class);
+		assertThat(index).isEqualTo(1);
+
+		Integer applied = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM flyway_schema_history WHERE version = '11' AND success = TRUE",
 				Integer.class);
 		assertThat(applied).isEqualTo(1);
 	}

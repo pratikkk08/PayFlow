@@ -1,11 +1,11 @@
 # PayFlow — AI Handoff
 
-**Updated:** 2026-10-13  
+**Updated:** 2026-10-16  
 **Purpose:** Minimal context for a new Cursor Agent chat. Prefer this + `AGENTS.md` over re-reading the whole repo history.
 
 ## Objective
 
-Simulated payment platform (portfolio): merchants, API keys, payments (authorize/capture/cancel), refunds/webhooks later. **Sandbox only — no real cards or live funds.**
+Simulated payment platform (portfolio): merchants, API keys, payments, refunds, ledger. **Sandbox only — no real cards or live funds.**
 
 ## Stack (implemented)
 
@@ -23,69 +23,58 @@ Simulated payment platform (portfolio): merchants, API keys, payments (authorize
 
 | Item | Value |
 |------|--------|
-| Branch | `feature/phase-3-payments` |
-| Latest commit | `feat: implement payment processing engine and idempotency` (confirm with `git log -1`) |
-| Also | `main` @ `feb8bba` (Phase 0); Phase 1 @ `75e8b55`; Phase 2 @ `46d2f1a` |
+| Branch | `feature/phase-4-refunds-ledger` |
+| Latest commit | Confirm with `git log -1` (Phase 4 checkpoint: `feat: implement refunds and double-entry ledger`) |
+| Also | Phase 3 tip was `281f2a4`; `main` @ Phase 0 |
 | Remote | None configured; do not push unless asked |
 
 ## Completed phases
 
 | Phase | Status | Highlights |
 |-------|--------|------------|
-| 0 | Done | Docs, layout, `.gitignore`, `.env.example` |
-| 1 | Done | Boot app, Compose, Flyway V1, ping, deny-by-default security |
-| 2 | Done | Identity, merchants, API keys, JWT/refresh, OpenAPI, rate limit |
-| 3 | Done | Payments schema, idempotent create, authorize/capture/cancel, list/get |
+| 0–2 | Done | Docs, boot app, identity, merchants, API keys, JWT |
+| 3 | Done | Payments create/authorize/capture/cancel, idempotency, list/get |
+| 4 | Done | Refunds, capacity locking, refund idempotency, double-entry ledger, refund read APIs |
 
-**Not started:** Phase 4+ (refunds, ledger, webhooks/outbox, risk, analytics, React UI, CI).
+**Not started:** Phase 5+ (webhooks/outbox/Kafka, risk, analytics, React UI, CI).
 
-## Migrations (Flyway V1–V7)
+## Migrations (Flyway V1–V11)
+
+Runtime marker: `payflow_schema_meta.schema_phase = phase-4`.
 
 | Version | Purpose |
 |---------|---------|
-| V1 | Baseline `payflow_schema_meta` |
-| V2 | Users, refresh, merchants, memberships, api_keys, audit |
-| V3 | `payments` table (minor units, status check, optimistic `version`) |
-| V4 | `payment_idempotency_records` |
-| V5 | Auth columns (`failure_code`, `authorized_at`, `processor_ref`) |
-| V6 | Capture/cancel timestamps |
-| V7 | List indexes (`merchant_id, created_at, id`) |
+| V1–V7 | Baseline through payments + list indexes |
+| V8 | `refunds` (`PENDING` / `SUCCEEDED` / `FAILED`) |
+| V9 | `refund_idempotency_records` |
+| V10 | Ledger accounts, transactions, entries |
+| V11 | `idx_refunds_payment_created_id` |
 
-Runtime marker: `payflow_schema_meta.schema_phase = phase-3`.
+## APIs (live additions)
 
-## APIs (live)
+**JWT merchant OWNER only** (API keys → 403; cross-merchant → 404):
 
-Public: `POST /api/v1/auth/{register,login,refresh,logout}`, `GET /api/v1/system/ping`, actuator health/info, Swagger (local).
+- Payments: create / get / list / authorize / capture / cancel (Phase 3)
+- `POST /api/v1/payments/{paymentId}/refunds` — create (`Idempotency-Key` required)
+- `GET /api/v1/refunds/{refundId}` — get
+- `GET /api/v1/payments/{paymentId}/refunds?page=&size=` — history (`createdAt DESC, id DESC`; size max 100)
 
-JWT user: `GET /api/v1/users/me`; merchants CRUD; API key create/list/revoke.
+Public auth/ping/actuator/Swagger unchanged. Secret key: `GET /api/v1/integrations/me` only.
 
-**JWT payments (owner only):**
+## Phase 4 invariants (enforced in app TX)
 
-- `POST /api/v1/payments` — create (`Idempotency-Key` required); money = `amountMinor` + `INR`
-- `GET /api/v1/payments/{id}` — get
-- `GET /api/v1/payments?merchantId=&status=&createdFrom=&createdTo=&page=&size=` — list
-- `POST /api/v1/payments/{id}/authorize` — simulated auth → `AUTHORIZED` or `FAILED`
-- `POST /api/v1/payments/{id}/capture` — `AUTHORIZED` → `CAPTURED`
-- `POST /api/v1/payments/{id}/cancel` — `CREATED`/`AUTHORIZED` → `CANCELLED`
-
-Secret API key (`Bearer sk_test_…`): `GET /api/v1/integrations/me` only — **not** payment endpoints (403).
-
-Cross-merchant access → **404**. Publishable `pk_test_…` cannot authenticate.
-
-## Key decisions (see `DECISIONS.md`)
-
-- Modular monolith; Postgres SoT; money as integer minor units (ADR-003).
-- Two-step flow: `CREATED` → `AUTHORIZED` → `CAPTURED`; cancel uses `CANCELLED` (not `VOIDED`).
-- Idempotency in Postgres: unique `(merchant_id, operation, key)`; fingerprint conflict → 409 (ADR-016).
-- Domain state machine + `@Version` + `SELECT … FOR UPDATE` on transitions.
-- Deterministic simulated processor (decline when merchant reference ends with `-decline`).
-- Jackson **3** `JsonMapper`; Boot **4.1.1**.
+- Refunds only against `CAPTURED` payments; no payment-level `REFUNDED` status.
+- Capacity = captured − sum(`PENDING` + `SUCCEEDED`); payment row locked on create.
+- Capture posting: DEBIT `PROCESSOR_CLEARING`, CREDIT `MERCHANT_PAYABLE`.
+- Successful refund posting: reverse of capture; unique `(source_type, source_id)`.
+- Domain change + ledger posting commit atomically; posting failure rolls back both.
+- Failed authorize/capture/refund → no ledger rows.
 
 ## Known limits
 
-- No refunds, ledger, webhooks, outbox, Kafka domain events, risk, or analytics.
-- Currency locked to `INR` in schema/check.
-- Payment create/lifecycle is JWT-owner only (no secret-key payment API yet).
+- No webhooks, outbox, Kafka domain events, risk, or analytics.
+- Currency locked to `INR`.
+- Payment/refund APIs are JWT-owner only (no secret-key money APIs yet).
 - No email verification; no ADMIN grant endpoint.
 - Logout does not denylist access JWTs until expiry.
 - Host Postgres often occupies **5432** → Compose uses **5433**.
@@ -99,21 +88,17 @@ Copy-Item .env.example .env   # if needed
 docker compose -f infra/docker-compose.yml --env-file .env up -d
 cd backend
 .\mvnw.cmd clean verify
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-- Ping: `http://localhost:8080/api/v1/system/ping`
-- Swagger (local): `http://localhost:8080/swagger-ui.html`
-- JWT PEMs auto-create under `backend/local-secrets/` (gitignored) on local profile
-- Last verified: **45 tests passed**, 0 failed (`mvnw clean verify`, 2026-10-13)
+- Last verified: **89 tests passed**, 0 failed (`mvnw clean verify`, 2026-10-16)
 
 ## Current / next task
 
-- **Current:** Phase 3 complete on `feature/phase-3-payments`. Do not start Phase 4 unless asked.
-- **Next (Phase 4):** Refunds within capture limits; ledger postings; idempotent refunds; concurrency invariants. Still no real card processing.
+- **Current:** Phase 4 complete on `feature/phase-4-refunds-ledger`.
+- **Next (Phase 5):** Transactional outbox, Kafka publisher, signed webhooks with retries. Do not start unless asked.
 
 ## First actions in a new chat
 
 1. Read `AGENTS.md` + this file.  
 2. `git status` / confirm branch.  
-3. Implement **Phase 4 only** unless the user expands scope.
+3. Implement **Phase 5 only** unless the user expands scope.

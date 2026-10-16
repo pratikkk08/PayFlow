@@ -93,13 +93,13 @@ CREATED → CANCELLED
 AUTHORIZED → CANCELLED
 ```
 
-Refunds reference `CAPTURED` payments only:
+Refunds are a separate aggregate against `CAPTURED` payments only (no payment-level `REFUNDED` status):
 
 ```
-Refund: CREATED → SUCCEEDED | FAILED
+Refund: PENDING → SUCCEEDED | FAILED
 ```
 
-Illegal transitions throw a domain error; persistence uses optimistic locking (`version`) to prevent lost updates under concurrency.
+Illegal transitions throw a domain error; persistence uses optimistic locking (`version`) plus payment-row locks on refund create to prevent lost updates under concurrency.
 
 ### Failure scenarios (engineering)
 
@@ -130,10 +130,19 @@ Illegal transitions throw a domain error; persistence uses optimistic locking (`
 ## 6. Idempotency and concurrency
 
 1. Client sends `Idempotency-Key` on create payment / create refund.
-2. Server begins transaction; inserts idempotency row unique on `(merchant_id, key)`.
-3. On conflict, load existing record; compare request hash; return stored outcome or 409.
-4. Payments/refunds use `@Version` optimistic locking for state transitions.
-5. Refundable balance computed from captured amount minus succeeded refunds **inside** the same transaction as the new refund insert (or via ledger constraints).
+2. Server begins transaction; inserts idempotency row unique on `(merchant_id, operation, key)` (payments) or `(merchant_id, key)` for refunds.
+3. On conflict, load existing record; compare request fingerprint; return stored outcome or 409.
+4. Payments/refunds use `@Version` optimistic locking for state transitions; refund create locks the parent payment (`SELECT … FOR UPDATE`) before capacity checks.
+5. Refundable capacity = payment `amount_minor` − sum of refunds in `PENDING` or `SUCCEEDED`, enforced in the same TX as refund insert/update. `FAILED` releases reserved capacity.
+
+### Ledger posting (Phase 4)
+
+| Event | Debit | Credit |
+|-------|-------|--------|
+| Successful capture | `PROCESSOR_CLEARING` | `MERCHANT_PAYABLE` |
+| Successful refund | `MERCHANT_PAYABLE` | `PROCESSOR_CLEARING` |
+
+Postings are append-only double-entry rows (`ledger_transactions` + two `ledger_entries`) in the **same** PostgreSQL transaction as the domain change. Unique `(source_type, source_id)` prevents duplicate postings. Failed capture/refund attempts create no ledger rows. Amounts are positive INR minor units only.
 
 ## 7. Data consistency approach
 
@@ -211,7 +220,7 @@ Resource caps should be set so a 16 GB machine remains usable.
 | Identity | Register/login, RS256 JWT, hashed refresh rotation, `/users/me` |
 | Merchants | Owner-scoped CRUD; memberships table ready for future MEMBER role |
 | API keys | `sk_test_` / `pk_test_`; secret HMAC hash; `/integrations/me` diagnostic |
-| Schema | Flyway V1 baseline + V2 identity/merchants/keys/audit |
+| Schema | Flyway V1–V11 (payments V3–V7; refunds V8–V9/V11; ledger V10) |
 | Hibernate | `ddl-auto=validate` |
 | Security | Public auth + ping + health; JWT vs API-key Bearer classification |
 | OpenAPI | springdoc **3.1.1**; Swagger UI local-only |
@@ -222,4 +231,4 @@ See also [API_AUTHENTICATION.md](API_AUTHENTICATION.md) and [SECURITY.md](SECURI
 
 ## 14. Explicit honesty
 
-Payment create/authorize/capture/cancel and Postgres idempotency are **implemented** (Phase 3). Refunds, ledger, webhooks, and Kafka consumers remain **planned**. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Payments (Phase 3) and refunds + double-entry ledger postings (Phase 4) are **implemented**. Webhooks, outbox, and Kafka consumers remain **planned**. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).

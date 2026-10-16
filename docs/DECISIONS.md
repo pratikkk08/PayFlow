@@ -173,3 +173,23 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 - **Context:** Architecture allowed either single-step capture or auth/capture split; Phase 3 needed a concrete machine.
 - **Decision:** Use two-step flow: `CREATED` → `AUTHORIZED` → `CAPTURED`, with simulated decline `CREATED` → `FAILED`. Abandonment uses `CANCELLED` from `CREATED` or `AUTHORIZED` (no `VOIDED` status). Transitions enforced on `PaymentEntity`; concurrent updates use `@Version` plus `SELECT … FOR UPDATE`.
 - **Consequences:** Clients must call authorize then capture; cancel is the release path. Refunds (Phase 4) attach only to `CAPTURED`.
+
+---
+
+## ADR-018: Refund capacity reservation without payment REFUNDED status
+
+- **Date:** 2026-10-13
+- **Status:** Accepted
+- **Context:** Partial and full refunds must not overspend a captured payment; concurrent pending refunds must not race past remaining balance.
+- **Decision:** Store refunds in their own table (`PENDING` / `SUCCEEDED` / `FAILED`). Do **not** add a payment-level `REFUNDED` status — a `CAPTURED` payment may have zero, partial, or full successful refunds. Refundable capacity = payment `amount_minor` − sum of refund `amount_minor` where status ∈ {`PENDING`, `SUCCEEDED`}. `PENDING` reserves capacity until terminal resolution; `FAILED` releases it. Enforce the sum invariant inside the same DB transaction as refund insert/update (service layer); schema CHECK constraints cover per-row positivity, status, and `completed_at` consistency only.
+- **Consequences:** List/get payment APIs may later expose refunded totals as derived fields; over-refund attempts return a domain conflict/validation error without mutating ledger.
+
+---
+
+## ADR-019: Double-entry ledger with application-enforced balance
+
+- **Date:** 2026-10-16
+- **Status:** Accepted
+- **Context:** Capture and refund money movements need an auditable, append-only posting model without real settlement. Multi-row debit/credit balance cannot be expressed as a single-row CHECK.
+- **Decision:** Introduce `ledger_accounts`, `ledger_transactions`, and `ledger_entries` (Flyway V10). Account types: platform `PROCESSOR_CLEARING` (`merchant_id` NULL) and per-merchant `MERCHANT_PAYABLE`. Sources: `PAYMENT_CAPTURE` / `REFUND` with unique `(source_type, source_id)`. Currency locked to INR minor units. Conventions: capture = debit clearing / credit payable; successful refund = reverse. `LedgerPostingService` writes the transaction and balanced entry pair in the caller's DB transaction (propagation REQUIRED, never REQUIRES_NEW) and verifies Σ debits = Σ credits before commit. Schema CHECK covers per-row positivity and enums only — **the database does not already guarantee balanced postings**.
+- **Consequences:** No public update/delete of entries; duplicate source posting is rejected by unique constraint + service check; posting failure rolls back the payment capture or refund in the same TX.

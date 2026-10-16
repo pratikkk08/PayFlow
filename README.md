@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 2 — identity & merchants.** User registration/login (BCrypt), RS256 JWTs + hashed refresh tokens, owner-scoped merchants, TEST-mode API keys (`sk_test_`/`pk_test_`), OpenAPI, and Redis auth rate limiting are implemented.
+**Phase 4 — refunds & ledger.** Identity/merchants (Phase 2), simulated payments with idempotency (Phase 3), and Phase 4 refunds (full/partial, capacity locks, idempotency) plus atomic double-entry ledger postings for capture/refund are implemented.
 
-Not yet built: payments, refunds, webhooks, React dashboard.
+Not yet built: webhooks/outbox/Kafka domain events, risk, analytics, React dashboard.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -65,9 +65,9 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 |-------|--------|
 | 0 | Docs, repo layout, environment validation |
 | 1 | Backend skeleton, Docker Compose (Postgres/Redis/Kafka), Flyway baseline |
-| 2 | Identity & merchants, API keys ← **current** |
+| 2 | Identity & merchants, API keys |
 | 3 | Payments state machine & simulated processor |
-| 4 | Refunds, ledger, idempotency hardening |
+| 4 | Refunds, ledger, idempotency hardening ← **current** |
 | 5 | Webhooks, outbox, Kafka consumers |
 | 6 | Risk rules & analytics |
 | 7 | React dashboard |
