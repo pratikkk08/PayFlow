@@ -112,9 +112,11 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] Rules can flag/block simulated payments
-- [ ] Analytics endpoints for volume/success (honest eventual consistency if projected)
-- [ ] Tests for rule evaluation
+- [x] Rules can flag/block simulated payments (ALLOW/FLAG/REVIEW/BLOCK; REVIEW holds CREATED without approval workflow)
+- [x] Analytics endpoints for volume/success (live Postgres aggregates; UTC reporting; sandbox metrics only)
+- [x] Tests for rule evaluation, authorize integration, velocity concurrency, audit/security, analytics accuracy
+
+**Status:** Complete on `feature/phase-6-risk-analytics` (Flyway V17–V19; 206 tests). Not a production-certified fraud system.
 
 ---
 

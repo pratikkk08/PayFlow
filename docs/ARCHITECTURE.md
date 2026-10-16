@@ -217,7 +217,7 @@ Resource caps should be set so a 16 GB machine remains usable.
 | Identity | Register/login, RS256 JWT, hashed refresh rotation, `/users/me` |
 | Merchants | Owner-scoped CRUD; memberships table ready for future MEMBER role |
 | API keys | `sk_test_` / `pk_test_`; secret HMAC hash; `/integrations/me` diagnostic |
-| Schema | Flyway V1–V16; `schema_phase = phase-5` |
+| Schema | Flyway V1–V19; `schema_phase = phase-6` |
 | Hibernate | `ddl-auto=validate` |
 | Security | Public auth + ping + health; JWT vs API-key Bearer classification; internal ops require `ADMIN` |
 | OpenAPI | springdoc **3.1.1**; Swagger UI local-only |
@@ -226,6 +226,14 @@ Resource caps should be set so a 16 GB machine remains usable.
 
 See also [API_AUTHENTICATION.md](API_AUTHENTICATION.md) and [SECURITY.md](SECURITY.md).
 
-## 14. Explicit honesty
+## 14. Risk evaluation (Phase 6)
 
-Phases 2–5 are **implemented** on `feature/phase-5-events-webhooks`: identity, merchants, payments, refunds, ledger, transactional outbox, Kafka publish/consume, webhook registration, and signed delivery. Risk, analytics, and the React UI are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Merchant-scoped rules (`AMOUNT_THRESHOLD`, `PAYMENT_VELOCITY`, `REPEATED_FAILURES`) with actions FLAG/REVIEW/BLOCK. Authorize path: lock payment → lock merchant → record attempt → evaluate → persist assessment/matches → apply payment/outbox in one TX. Decision precedence BLOCK > REVIEW > FLAG > ALLOW; scores clamped to `[0, 100]`. REVIEW holds payment in `CREATED` (no approval API). BLOCK → `FAILED` (`risk_blocked`) with one failure outbox event. Assessments and match snapshots are immutable. Velocity uses authorize attempts, not create-time. Not a production fraud system.
+
+## 15. Merchant analytics (Phase 6)
+
+Read-only JWT OWNER endpoints: `GET /api/v1/merchants/{id}/analytics/overview` and `.../daily`. UTC calendar dates (inclusive) map to half-open instants; default last 30 days; max 366. Status counts use current status among payments created in-window; amounts use `captured_at` / SUCCEEDED `completed_at` / risk `evaluated_at`. Live SQL aggregates (no Redis). Sandbox activity only — not settled balances.
+
+## 16. Explicit honesty
+
+Phases 2–6 are **implemented** on `feature/phase-6-risk-analytics`: identity through risk evaluation and merchant analytics. The React UI, risk rule-management APIs, and manual review approval are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).

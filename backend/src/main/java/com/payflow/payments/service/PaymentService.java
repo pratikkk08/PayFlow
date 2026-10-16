@@ -1,9 +1,12 @@
 package com.payflow.payments.service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.payflow.ledger.service.LedgerPostingService;
+import com.payflow.merchants.persistence.MerchantRepository;
 import com.payflow.merchants.service.MerchantService;
 import com.payflow.outbox.domain.OutboxEventType;
 import com.payflow.outbox.service.OutboxEventWriter;
@@ -28,6 +32,12 @@ import com.payflow.payments.persistence.PaymentRepository;
 import com.payflow.payments.persistence.PaymentSpecifications;
 import com.payflow.payments.processor.AuthorizationResult;
 import com.payflow.payments.processor.SimulatedPaymentProcessor;
+import com.payflow.risk.domain.RiskAssessmentEntity;
+import com.payflow.risk.domain.RiskDecision;
+import com.payflow.risk.persistence.RiskAssessmentRepository;
+import com.payflow.risk.service.RiskAssessmentWriter;
+import com.payflow.risk.service.RiskEvaluationResult;
+import com.payflow.risk.service.RiskEvaluationService;
 import com.payflow.shared.error.ApiException;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -35,33 +45,53 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class PaymentService {
 
+	private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
 	static final Duration IDEMPOTENCY_RETENTION = Duration.ofHours(72);
 	static final Duration STARTED_LEASE = Duration.ofSeconds(30);
+
+	/** Safe failure code when risk decision is BLOCK (no processor call). */
+	public static final String FAILURE_RISK_BLOCKED = "risk_blocked";
 
 	private final PaymentRepository paymentRepository;
 	private final PaymentIdempotencyRepository idempotencyRepository;
 	private final MerchantService merchantService;
+	private final MerchantRepository merchantRepository;
 	private final IdempotencyKeyValidator idempotencyKeyValidator;
 	private final SimulatedPaymentProcessor paymentProcessor;
 	private final LedgerPostingService ledgerPostingService;
 	private final OutboxEventWriter outboxEventWriter;
+	private final RiskEvaluationService riskEvaluationService;
+	private final RiskAssessmentWriter riskAssessmentWriter;
+	private final RiskAssessmentRepository riskAssessmentRepository;
+	private final Clock clock;
 	private final JsonMapper jsonMapper;
 
 	public PaymentService(PaymentRepository paymentRepository,
 			PaymentIdempotencyRepository idempotencyRepository,
 			MerchantService merchantService,
+			MerchantRepository merchantRepository,
 			IdempotencyKeyValidator idempotencyKeyValidator,
 			SimulatedPaymentProcessor paymentProcessor,
 			LedgerPostingService ledgerPostingService,
 			OutboxEventWriter outboxEventWriter,
+			RiskEvaluationService riskEvaluationService,
+			RiskAssessmentWriter riskAssessmentWriter,
+			RiskAssessmentRepository riskAssessmentRepository,
+			Clock clock,
 			JsonMapper jsonMapper) {
 		this.paymentRepository = paymentRepository;
 		this.idempotencyRepository = idempotencyRepository;
 		this.merchantService = merchantService;
+		this.merchantRepository = merchantRepository;
 		this.idempotencyKeyValidator = idempotencyKeyValidator;
 		this.paymentProcessor = paymentProcessor;
 		this.ledgerPostingService = ledgerPostingService;
 		this.outboxEventWriter = outboxEventWriter;
+		this.riskEvaluationService = riskEvaluationService;
+		this.riskAssessmentWriter = riskAssessmentWriter;
+		this.riskAssessmentRepository = riskAssessmentRepository;
+		this.clock = clock;
 		this.jsonMapper = jsonMapper;
 	}
 
@@ -113,8 +143,43 @@ public class PaymentService {
 			throw invalidTransition("Payment status " + payment.getStatus() + " cannot be authorized");
 		}
 
+		var existingAssessment = riskAssessmentRepository.findByPaymentId(paymentId);
+		if (existingAssessment.isPresent()) {
+			RiskAssessmentEntity prior = existingAssessment.get();
+			if (prior.getDecision() == RiskDecision.REVIEW) {
+				throw invalidTransition("Payment is held for risk review and cannot be authorized");
+			}
+			throw invalidTransition("Payment already has a risk assessment and cannot be re-authorized");
+		}
+
+		// Lock order: payment (above) → merchant. Serializes risk velocity/failures per merchant.
+		merchantRepository.findByIdForUpdate(payment.getMerchantId())
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "not_found", "Merchant not found"));
+
+		RiskEvaluationResult risk = riskEvaluationService.evaluateForAuthorization(payment);
+		riskAssessmentWriter.persist(risk);
+		logRiskDecision(risk);
+
+		// Shared Clock with risk evaluation so FAILED.updated_at aligns with attempt windows.
+		Instant now = clock.instant();
+		if (risk.decision() == RiskDecision.REVIEW) {
+			// Held: assessment committed with CREATED; no processor, outbox auth/fail, or ledger.
+			return toResponse(payment);
+		}
+		if (risk.decision() == RiskDecision.BLOCK) {
+			try {
+				payment.applyAuthorizationDeclined(FAILURE_RISK_BLOCKED, now);
+			}
+			catch (IllegalStateException ex) {
+				throw invalidTransition(ex.getMessage());
+			}
+			paymentRepository.saveAndFlush(payment);
+			outboxEventWriter.appendPaymentEvent(payment, OutboxEventType.PAYMENT_FAILED);
+			return toResponse(payment);
+		}
+
+		// ALLOW and FLAG: proceed with simulated processor (assessment already persisted).
 		AuthorizationResult result = paymentProcessor.authorize(payment);
-		Instant now = Instant.now();
 		try {
 			if (result.approved()) {
 				payment.applyAuthorizationApproved(result.processorRef(), now);
@@ -130,6 +195,18 @@ public class PaymentService {
 		outboxEventWriter.appendPaymentEvent(payment,
 				result.approved() ? OutboxEventType.PAYMENT_AUTHORIZED : OutboxEventType.PAYMENT_FAILED);
 		return toResponse(payment);
+	}
+
+	/** Safe identifiers/reason codes only — never secrets or rule parameter payloads. */
+	private static void logRiskDecision(RiskEvaluationResult risk) {
+		log.info(
+				"risk_authorize paymentId={} merchantId={} decision={} score={} reasons={} matchedRules={}",
+				risk.paymentId(),
+				risk.merchantId(),
+				risk.decision(),
+				risk.riskScore(),
+				risk.reasonCodes(),
+				risk.matchedRuleIds().size());
 	}
 
 	@Transactional

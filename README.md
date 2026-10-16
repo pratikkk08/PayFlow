@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 5 — outbox, Kafka, and signed webhooks.** Identity through ledger (Phases 2–4) plus transactional outbox, Kafka publish/consume, webhook registration, and signed delivery are implemented. Outbound webhook HTTP and the Kafka publisher stay off unless explicitly enabled.
+**Phase 6 — risk rules and merchant analytics.** Identity through webhooks (Phases 2–5) plus configurable risk evaluation on authorize, velocity concurrency controls, immutable risk assessments, and JWT-owner merchant analytics (overview/daily, UTC) are implemented. Outbound webhook HTTP and the Kafka publisher stay off unless explicitly enabled.
 
-Not yet built: risk rules, analytics, React dashboard, CI, webhook secret rotation, and a self-service ADMIN grant.
+Not yet built: React dashboard, risk rule-management APIs, manual review approval workflow, CI, webhook secret rotation, and a self-service ADMIN grant.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -68,8 +68,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 2 | Identity & merchants, API keys |
 | 3 | Payments state machine & simulated processor |
 | 4 | Refunds, ledger, idempotency hardening |
-| 5 | Webhooks, outbox, Kafka consumers ← **current** |
-| 6 | Risk rules & analytics |
+| 5 | Webhooks, outbox, Kafka consumers |
+| 6 | Risk rules & analytics ← **current** |
 | 7 | React dashboard |
 | 8 | CI, hardening, portfolio polish |
 

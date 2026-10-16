@@ -5,12 +5,23 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.payflow.merchants.domain.MerchantEntity;
 
+import jakarta.persistence.LockModeType;
+
 public interface MerchantRepository extends JpaRepository<MerchantEntity, UUID> {
+
+	/**
+	 * Merchant-scoped risk serialization for authorize (Task 6.4). Always acquire
+	 * <b>after</b> the payment row lock to keep lock order: payment → merchant.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select m from MerchantEntity m where m.id = :id")
+	Optional<MerchantEntity> findByIdForUpdate(@Param("id") UUID id);
 
 	@Query("""
 			select m from MerchantEntity m

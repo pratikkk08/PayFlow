@@ -1,5 +1,6 @@
 package com.payflow.payments.persistence;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,4 +23,40 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, UUID>, J
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from PaymentEntity p where p.id = :id")
 	Optional<PaymentEntity> findByIdForUpdate(@Param("id") UUID id);
+
+	/**
+	 * Velocity window: merchant-scoped payments with {@code createdAt} in
+	 * {@code [windowStart, windowEnd]} inclusive, excluding {@code excludePaymentId}.
+	 */
+	@Query("""
+			select count(p) from PaymentEntity p
+			where p.merchantId = :merchantId
+			  and p.id <> :excludePaymentId
+			  and p.createdAt >= :windowStart
+			  and p.createdAt <= :windowEnd
+			""")
+	long countCreatedInWindowExcluding(
+			@Param("merchantId") UUID merchantId,
+			@Param("excludePaymentId") UUID excludePaymentId,
+			@Param("windowStart") Instant windowStart,
+			@Param("windowEnd") Instant windowEnd);
+
+	/**
+	 * Failed-authorization window: merchant-scoped {@code FAILED} payments with
+	 * {@code updatedAt} in {@code [windowStart, windowEnd]} inclusive, excluding
+	 * {@code excludePaymentId}. {@code updatedAt} reflects when the payment became FAILED.
+	 */
+	@Query("""
+			select count(p) from PaymentEntity p
+			where p.merchantId = :merchantId
+			  and p.id <> :excludePaymentId
+			  and p.status = com.payflow.payments.domain.PaymentStatus.FAILED
+			  and p.updatedAt >= :windowStart
+			  and p.updatedAt <= :windowEnd
+			""")
+	long countFailedUpdatedInWindowExcluding(
+			@Param("merchantId") UUID merchantId,
+			@Param("excludePaymentId") UUID excludePaymentId,
+			@Param("windowStart") Instant windowStart,
+			@Param("windowEnd") Instant windowEnd);
 }

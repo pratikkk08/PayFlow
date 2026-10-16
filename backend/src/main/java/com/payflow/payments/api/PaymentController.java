@@ -71,7 +71,7 @@ public class PaymentController {
 	}
 
 	@PostMapping("/{paymentId}/authorize")
-	@Operation(summary = "Run simulated authorization (CREATED → AUTHORIZED or FAILED)")
+	@Operation(summary = "Run risk evaluation then simulated authorization (CREATED → AUTHORIZED/FAILED, or held CREATED on REVIEW)")
 	public PaymentResponse authorize(@PathVariable UUID paymentId) {
 		return paymentService.authorize(securitySupport.requireUserId(), paymentId);
 	}

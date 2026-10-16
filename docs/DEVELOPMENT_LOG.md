@@ -4,6 +4,29 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-16 — Phase 6: Risk rules & merchant analytics
+
+### Done
+
+- Branch `feature/phase-6-risk-analytics` from Phase 5 tip (`5aa4251`).
+- Flyway V17–V19: risk rules/assessments/matches, authorization attempts, analytics indexes; `schema_phase = phase-6`.
+- Deterministic risk evaluation (AMOUNT_THRESHOLD, PAYMENT_VELOCITY, REPEATED_FAILURES) with FLAG/REVIEW/BLOCK scoring and ALLOW default.
+- Authorize integration: payment→merchant locks, attempt record, assessment snapshots, payment/outbox in one TX; REVIEW hold; BLOCK → FAILED once.
+- Velocity concurrency-safe via merchant lock; injected Clock; audit/security hardening; fail-closed malformed BLOCK/REVIEW params.
+- Merchant analytics overview/daily (JWT OWNER, UTC half-open ranges, integer minor units, event timestamps).
+- Hardening: EXPLAIN ANALYZE on ~1.2k-row fixture (sub-ms aggregates; V19 indexes used for narrow windows).
+- Tests: **206 passed**, 0 failed via `.\mvnw.cmd clean verify`.
+
+### Not done
+
+- React UI, risk rule-management APIs, manual review approval, CI, webhook secret rotation, HTTP admin retry API
+
+### Next
+
+Phase 7: React dashboard against local API.
+
+---
+
 ## 2026-10-16 — Phase 5: Outbox, Kafka, and signed webhooks
 
 ### Done

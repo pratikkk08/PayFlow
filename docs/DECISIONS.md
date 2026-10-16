@@ -213,3 +213,23 @@ Only decisions that affect structure, stack, or safety belong here. Implementati
 - **Context:** Merchant webhooks need at-least-once signed delivery without SSRF or blocking payment APIs.
 - **Decision:** Enqueue `webhook_deliveries` in the Kafka consumer TX with `processed_events`. A separate worker claims via `SKIP LOCKED`, commits, then POSTs. Signature base = `{unixSeconds}.{eventId}.{body}` → `X-PayFlow-Signature: v1=<hex HMAC-SHA256>`. The transport opens TCP to the already validated IP only, then TLS with SNI and certificate checks for the original hostname, and sends that hostname in the HTTP `Host` header. Redirects are rejected. Retry 429/5xx/timeouts with backoff; other 4xx are permanent failures. Delivery disabled unless `payflow.webhooks.delivery.enabled=true`.
 - **Consequences:** Ordinary HTTP clients that re-resolve hostnames after validation are unsuitable; custom transport required.
+
+---
+
+## ADR-022: Deterministic merchant-scoped risk on authorize
+
+- **Date:** 2026-10-16
+- **Status:** Accepted
+- **Context:** Portfolio needs credible fraud-*shaped* controls without claiming real fraud detection. Concurrent authorizes must not race velocity thresholds.
+- **Decision:** Evaluate merchant rules (`AMOUNT_THRESHOLD`, `PAYMENT_VELOCITY`, `REPEATED_FAILURES`) inside the authorize transaction after payment→merchant locks. Persist immutable `risk_assessments` + `risk_rule_matches` and durable `risk_authorization_attempts` (one per payment). Decision precedence BLOCK > REVIEW > FLAG > ALLOW; fixed score contributions clamped to `[0, 100]`. REVIEW holds `CREATED` (no approval API); BLOCK declines with `risk_blocked` and a single failure outbox event. Velocity counts peer authorize attempts; repeated failures use FAILED `updated_at`. Malformed BLOCK/REVIEW params fail closed; FLAG params skip. Injected `Clock` for windows/timestamps.
+- **Consequences:** Not production fraud certification; multi-instance clock skew uncorrected; rule CRUD APIs deferred; REVIEW needs a future approval workflow to release holds.
+
+---
+
+## ADR-023: Live SQL merchant analytics (UTC, read-only)
+
+- **Date:** 2026-10-16
+- **Status:** Accepted
+- **Context:** Dashboard needs volume/success summaries without Redis caches or claiming settled revenue.
+- **Decision:** JWT OWNER read APIs for overview and daily series. Reporting timezone UTC; inclusive calendar dates → half-open instants; default 30 days; max 366. Status counts = current status among payments created in-window; event amounts use `captured_at` / SUCCEEDED `completed_at` / risk `evaluated_at`. Aggregate in PostgreSQL with bound parameters and V19 indexes; no entity hydration of full histories.
+- **Consequences:** Status counts are not historical reconstructions; nets can be negative across periods; FAILED daily uses `updated_at` until a dedicated `failed_at` exists.

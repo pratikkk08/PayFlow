@@ -1,6 +1,6 @@
 # PayFlow — Product Requirements
 
-**Status:** Phase 5 outbox, Kafka, and signed webhooks implemented; risk and analytics not started  
+**Status:** Phase 6 risk rules and merchant analytics implemented; React dashboard not started  
 **Last updated:** 2026-10-16
 
 ## 1. Vision
@@ -116,8 +116,8 @@ MVP is reached when Phases 1–5 acceptance criteria in [ROADMAP.md](ROADMAP.md)
 | FR-04 | Idempotency-Key header (or equivalent) deduplicates creates | MVP |
 | FR-05 | Refunds cannot exceed captured − already refunded | MVP |
 | FR-06 | Webhooks are signed and retryable | MVP |
-| FR-07 | Risk rules can block or flag simulated payments | Post-MVP / Phase 6 |
-| FR-08 | Analytics endpoints summarize volume/success rates | Post-MVP / Phase 6 |
+| FR-07 | Risk rules can block or flag simulated payments | Done (Phase 6) |
+| FR-08 | Analytics endpoints summarize volume/success rates | Done (Phase 6) |
 | FR-09 | Dashboard operators can browse transactions | Phase 7 |
 
 ## 8. Non-functional requirements

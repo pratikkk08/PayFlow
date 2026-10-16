@@ -1,6 +1,6 @@
-# PayFlow — Security Notes (Phase 2)
+# PayFlow — Security Notes
 
-**Status:** Local/portfolio hardening — **not** a claim of production or regulatory compliance.
+**Status:** Local/portfolio hardening through Phase 6 — **not** a claim of production, PCI, or fraud-certification compliance.
 
 ## Implemented controls
 
@@ -23,6 +23,9 @@
 | Webhook URL registration | HTTPS only; reject credentials, fragments, IP literals, localhost/metadata hostnames. **No outbound fetch at registration** |
 | Webhook delivery | Claimed jobs; HMAC-SHA256 `v1` signatures; TCP to the pinned IP only; JVM PKIX plus SNI/hostname checks; `Host` is the original hostname; redirects disabled; delivery off by default |
 | Webhook SSRF (delivery) | Re-resolve DNS each attempt; block private/link-local/metadata addresses; connect only to validated IP; refuse redirects; never disable TLS verification |
+| Risk authorize | JWT merchant owner only; API keys rejected; merchant-scoped rules/attempts/assessments; fail-closed invalid BLOCK/REVIEW params |
+| Risk audit logs | Decision logs use payment/merchant ids, decision, score, reason codes — no secrets or card data |
+| Analytics | JWT OWNER only; API keys → 403; cross-merchant → 404; bound SQL parameters; no other-merchant leakage |
 
 ## Explicit limitations
 
@@ -36,6 +39,9 @@
 8. Webhook secret **rotation API** is designed but not implemented (immediate invalidation of old secret planned).
 9. Webhook delivery is at-least-once; receivers must verify signatures and dedupe by event id.
 10. Local TLS fixture tests cover chain validation, SNI, hostname checks, pinned-IP connect, redirect rejection, read timeout, and overall timeout. A dropped-packet connect-timeout against an off-box blackhole was not run. Closed-port connects fail as `io_error` and do not fall back to another address.
+11. Risk engine is a **simulated** rule evaluator — not a production-certified fraud detection system. No rule-management HTTP APIs yet (rules seeded via DB/tests).
+12. REVIEW holds payment in `CREATED` without a manual approval workflow; re-authorize is rejected while the assessment exists.
+13. Multi-instance clock skew is not corrected for risk velocity windows or analytics default “today”.
 
 ## Operational guidance
 
