@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 8 — CI / DevOps (complete locally on `feature/phase-8-devops`).** CI workflow, Docker images, prod fail-closed config, deployment Compose, Playwright E2E (local), ops/backup runbooks, and Task 8.8 verification checkpoint. Remote GitHub Actions and production HTTPS browser login are **not** verified until push / TLS.
+**Phase 9 in progress on `feature/phase-9-portfolio`.** Phase 8 complete locally. Task **9.2** verified Secure-cookie auth over **local HTTPS**. Task **9.3** hosting plan: **₹0/month** — prefer Oracle Always Free Ampere A1 (capacity **unverified**); see [docs/DEPLOYMENT_PLAN.md](docs/DEPLOYMENT_PLAN.md). No cloud resources provisioned. Remote GitHub Actions **not** verified. No real-money processing.
 
-Not yet built (Phase 9+): CI-hosted E2E, TLS-terminated Secure-cookie browser proof, risk rule-management APIs, webhook secret rotation, public cloud deploy.
+Not yet built: remote CI green proof, free-tier public VM (gated), CI-hosted E2E, risk rule-management APIs, webhook secret rotation.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -71,8 +71,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 5 | Webhooks, outbox, Kafka consumers |
 | 6 | Risk rules & analytics |
 | 7 | React dashboard ← **done** |
-| 8 | CI, hardening, portfolio polish ← **done locally** (8.1–8.8); remote CI / HTTPS login pending |
-| 9 | Portfolio polish / TLS / remote CI ← **not started** |
+| 8 | CI, hardening, portfolio polish ← **done locally** (8.1–8.8) |
+| 9 | Portfolio polish ← **in progress** (9.1–9.3 docs/local; ₹0 host / remote CI pending approval) |
 
 Full plan: [docs/ROADMAP.md](docs/ROADMAP.md). Product scope: [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md).
 
@@ -139,7 +139,9 @@ npx playwright install chromium   # once
 npm run test:e2e
 ```
 
-Three Chromium scenarios: auth/session, merchant isolation, simulated payment lifecycle. Reports under `frontend/playwright-report/` (gitignored). Does **not** verify production HTTPS Secure-cookie login.
+HTTP scenarios (Vite): auth/session, merchant isolation, simulated payment lifecycle. Reports under `frontend/playwright-report/` (gitignored).
+
+Local HTTPS Secure-cookie proof (deploy Compose + self-signed Nginx TLS): see [docs/SETUP.md](docs/SETUP.md) §12a — `npm run test:e2e:https`. Playwright may ignore self-signed cert errors for that run only; that is not OS trust-store proof. No public cloud deploy yet.
 
 ### Backend Docker image
 

@@ -1,0 +1,59 @@
+# Optional HTTPS override for local Secure-cookie verification (Task 9.2).
+# Does not replace infra/docker-compose.deploy.yml (HTTP smoke remains default).
+#
+# From repository root (after .\scripts\prepare-deploy-https-smoke.ps1):
+#   docker compose -p payflow-deploy-https `
+#     -f infra/docker-compose.deploy.yml `
+#     -f infra/docker-compose.deploy.https.yml `
+#     --env-file secrets/deploy-https/.env `
+#     up -d --build
+#
+# Cleanup (this project only; does not touch payflow-postgres / payflow-deploy):
+#   docker compose -p payflow-deploy-https `
+#     -f infra/docker-compose.deploy.yml `
+#     -f infra/docker-compose.deploy.https.yml `
+#     --env-file secrets/deploy-https/.env `
+#     down -v
+#
+# Always use -p payflow-deploy-https so volumes/networks stay isolated.
+# Frontend binds 127.0.0.1 only. Postgres/Redis/backend stay unpublished.
+
+services:
+  backend:
+    environment:
+      # Same-origin SPA via Nginx — keep a non-localhost CORS allow-list (prod validator
+      # rejects 127.0.0.1/localhost). Browser traffic does not rely on CORS for API calls.
+      PAYFLOW_CORS_ALLOWED_ORIGINS: ${PAYFLOW_CORS_ALLOWED_ORIGINS:-https://app.example.com}
+
+  frontend:
+    environment:
+      PAYFLOW_BACKEND_HOST: backend
+      PAYFLOW_BACKEND_PORT: "8080"
+      PAYFLOW_PUBLIC_HTTPS_PORT: ${PAYFLOW_DEPLOY_HTTPS_PORT:-18443}
+    ports:
+      # Base compose already maps HTTP 8080; add TLS listener (unprivileged 8443).
+      - "127.0.0.1:${PAYFLOW_DEPLOY_HTTPS_PORT:-18443}:8443"
+    volumes:
+      - type: bind
+        source: ${PAYFLOW_TLS_CERT_FILE}
+        target: /etc/nginx/certs/tls.crt
+        read_only: true
+      - type: bind
+        source: ${PAYFLOW_TLS_KEY_FILE}
+        target: /etc/nginx/certs/tls.key
+        read_only: true
+      - type: bind
+        source: ../frontend/nginx/default-https.conf.template
+        target: /etc/nginx/templates/default.conf.template
+        read_only: true
+    healthcheck:
+      # HTTP listener returns 301 to HTTPS; busybox wget has no TLS verify flags.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+networks:
+  internal:
+    name: payflow_deploy_https_internal

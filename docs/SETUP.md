@@ -1,6 +1,6 @@
 # PayFlow — Local Setup
 
-**Status:** Phase 8.8 final verification on Windows 11 + Docker Desktop (2026-10-17)
+**Status:** Task 9.4 local ARM64 Buildx readiness (2026-10-17). Tasks 9.1–9.4 uncommitted. Native Oracle A1 / remote CI / public deploy **NOT VERIFIED**.
 
 ## 1. Prerequisites
 
@@ -209,7 +209,67 @@ npm audit --omit=dev
 
 **Testcontainers notes:** CI verifies `docker version` / `docker info` before Maven. Image pulls (Postgres, Redis, Kafka) need network egress and enough disk/memory on the runner. No paid external services are required.
 
+**Local validation (Task 9.1):** `rhysd/actionlint` on `.github/workflows/ci.yml` — exit 0. No workflow defects fixed (none confirmed). Action majors (`checkout@v7`, `setup-java@v6`, `setup-node@v7`, `upload-artifact@v7`) match current official docs. Maven Wrapper is `distributionType=only-script` (no committed `.jar`).
+
 **Limitation:** until the branch is pushed and a workflow run completes, GitHub Actions execution is **NOT VERIFIED**.
+
+### 9a. Git remote status & first Actions run (Task 9.1)
+
+| Item | Status (this machine) |
+|------|------------------------|
+| `git remote -v` | **Empty** — no `origin` |
+| GitHub CLI | Not authenticated (`gh auth login` required before `gh` repo create) |
+| Intended visibility for first publish | **Private** (do not flip public yet) |
+| Security review | No real PEMs/`.env`/DB dumps in tracked history; gitignored local files stay out of Git. Documented local placeholders (e.g. `change_me_local_only`, test peppers, local webhook AES examples) are **not** production secrets |
+| Public portfolio publish | **Not advised yet** — finish Phase 9 polish, keep claims accurate (simulation only, not PCI/SOC2), avoid shipping operational dump paths or implying live payments |
+
+**Before any push:** confirm `git status` is clean of secrets; never `git add -f` `.env`, `local-secrets/`, `secrets/`, `backups/`, Playwright traces, or `*.pem`.
+
+#### A. No remote yet — create a private repo and attach `origin`
+
+Do **not** invent a URL or username. Replace placeholders with your account/org values.
+
+```powershell
+# 1) Authenticate once (interactive)
+gh auth login
+
+# 2) Create PRIVATE empty repo under your account/org (pick ONE style)
+gh repo create YOUR_GITHUB_OWNER/PayFlow --private --source=. --remote=origin --push=false
+# Or create on github.com (Private, no README/license/.gitignore), then:
+# git remote add origin https://github.com/YOUR_GITHUB_OWNER/PayFlow.git
+# (or SSH: git@github.com:YOUR_GITHUB_OWNER/PayFlow.git)
+
+git remote -v   # confirm origin only
+```
+
+#### B. Safe first branch publish (triggers CI)
+
+```powershell
+git checkout feature/phase-9-portfolio
+git status   # must be clean of secrets
+git push -u origin feature/phase-9-portfolio
+```
+
+Expected trigger: workflow **CI** on `push` to `feature/**` (also runs on `pull_request` and `workflow_dispatch`). Jobs: **Backend verify**, **Frontend verify**.
+
+Optional PR (after remote exists; do not assume base branch strategy):
+
+```powershell
+gh pr create --base main --head feature/phase-9-portfolio --title "Phase 9: portfolio / CI readiness" --body "Remote CI proof + Phase 9 work. Simulation only."
+```
+
+Note: local `main` is still early (`feb8bba`). Prefer private feature-branch CI first; merge to `main` only when you intentionally promote the full stack.
+
+#### C. Confirm the run is green
+
+```powershell
+gh run list --workflow=ci.yml --branch feature/phase-9-portfolio --limit 5
+gh run view <RUN_ID> --log-failed   # if anything fails
+```
+
+Or: GitHub → **Actions** → **CI** → open the run → both jobs green. Only then mark remote CI as verified in handoff docs.
+
+**Do not** store deploy/JWT/pepper secrets as Actions repository secrets for this verify-only workflow — CI uses test fixtures only.
 
 ## 10. Backend Docker image (Task 8.2)
 
@@ -338,7 +398,99 @@ docker compose -f infra/docker-compose.deploy.yml --env-file secrets/deploy-smok
 
 JWT PEMs mount read-only at `/run/secrets/*.pem`. Placeholder template: [`.env.production.example`](../.env.production.example).
 
-**HTTPS:** prod sets `Secure` cookies. Local HTTP smoke verifies health/proxy/CSRF `Secure` flags, but full browser login needs TLS termination (or browser localhost HTTPS). Do not disable `Secure` for convenience.
+**HTTPS:** prod sets `Secure` cookies. For full browser Secure-cookie proof, use §12a (do not disable `Secure`).
+
+### 12a. Local HTTPS Secure-cookie smoke (Task 9.2)
+
+Optional override — does **not** replace the HTTP deploy file above. TLS terminates in the existing frontend Nginx (no extra proxy container). Isolated Compose project + volumes.
+
+| Item | Value |
+|------|--------|
+| Override | [`infra/docker-compose.deploy.https.yml`](../infra/docker-compose.deploy.https.yml) |
+| Nginx TLS template | [`frontend/nginx/default-https.conf.template`](../frontend/nginx/default-https.conf.template) |
+| Certs (gitignored) | `secrets/local-https/tls.crt` + `tls.key` |
+| Secrets (gitignored) | `secrets/deploy-https/.env` + JWT PEMs |
+| HTTPS origin | `https://127.0.0.1:18443` (loopback only) |
+| HTTP redirect | `http://127.0.0.1:18082` → HTTPS (default ports in prepare script) |
+| HSTS | **Not** set (localhost-friendly) |
+
+#### Generate certs + secrets
+
+```powershell
+cd C:\Projects\PayFlow
+.\scripts\prepare-deploy-https-smoke.ps1
+```
+
+- Certs via official `alpine/openssl` image (SAN: `DNS:localhost`, `IP:127.0.0.1`).
+- Private keys are never printed. Files are chmod'd readable for `nginx-unprivileged` (uid 101).
+- **Browser trust is not automatic.** Import `tls.crt` into the OS trust store only if you want a warning-free browser; Playwright E2E uses narrowly scoped `ignoreHTTPSErrors` for this self-signed case and does **not** prove OS trust-store validation.
+- CORS stays `https://app.example.com` (prod validator rejects localhost). The SPA talks same-origin through Nginx.
+
+#### Start / smoke / stop
+
+```powershell
+docker compose -p payflow-deploy-https `
+  -f infra/docker-compose.deploy.yml `
+  -f infra/docker-compose.deploy.https.yml `
+  --env-file secrets/deploy-https/.env `
+  up -d --build
+
+# Checks (PowerShell):
+curl.exe -k https://127.0.0.1:18443/api/v1/system/ping
+curl.exe -k -o NUL -w "%{http_code}" https://127.0.0.1:18443/
+curl.exe -k -o NUL -w "%{http_code}" https://127.0.0.1:18443/actuator/metrics   # expect 404
+curl.exe -o NUL -w "%{http_code}" http://127.0.0.1:18082/   # expect 301 -> https://127.0.0.1:18443/
+
+# Playwright Secure-cookie E2E (from frontend/)
+$env:PLAYWRIGHT_BASE_URL='https://127.0.0.1:18443'
+$env:PLAYWRIGHT_SKIP_WEBSERVER='1'
+npm run test:e2e:https
+
+# Cleanup THIS project only (does not touch payflow-postgres / payflow-deploy):
+docker compose -p payflow-deploy-https `
+  -f infra/docker-compose.deploy.yml `
+  -f infra/docker-compose.deploy.https.yml `
+  --env-file secrets/deploy-https/.env `
+  down -v
+```
+
+Verified locally (Task 9.2): postgres/redis/backend healthy; frontend HTTPS 200; metrics 404; host publishes only frontend loopback ports; Playwright **1 passed** (HttpOnly+Secure `payflow_refresh`, Secure `XSRF-TOKEN`, reload restore, logout invalidation). No certificates committed.
+
+### 12b. ARM64 deploy images (Task 9.4)
+
+Prepare Oracle Always Free Ampere A1 **without provisioning cloud here**. Uses Docker Buildx; on Windows/amd64 hosts builds run under **QEMU emulation** (slow). Native Ampere remains **NOT VERIFIED** until run on an A1 VM.
+
+| Artifact | Path |
+|----------|------|
+| Build script | [`scripts/build-deploy-images-arm64.ps1`](../scripts/build-deploy-images-arm64.ps1) |
+| Compose override | [`infra/docker-compose.deploy.arm64.yml`](../infra/docker-compose.deploy.arm64.yml) |
+| Env placeholders | [`.env.a1.example`](../.env.a1.example) |
+
+```powershell
+cd C:\Projects\PayFlow
+.\scripts\build-deploy-images-arm64.ps1
+# Tags: payflow-backend:deploy-arm64 , payflow-frontend:deploy-arm64  (local only; no registry push)
+
+.\scripts\prepare-deploy-smoke-secrets.ps1
+$env:PAYFLOW_DEPLOY_HTTP_PORT = "18083"
+docker compose -p payflow-arm64-smoke `
+  -f infra/docker-compose.deploy.yml `
+  -f infra/docker-compose.deploy.arm64.yml `
+  --env-file secrets/deploy-smoke/.env `
+  up -d
+# Checks: curl http://127.0.0.1:18083/api/v1/system/ping
+# Confirm aarch64: docker exec payflow-arm64-smoke-backend-1 uname -m
+
+docker compose -p payflow-arm64-smoke `
+  -f infra/docker-compose.deploy.yml `
+  -f infra/docker-compose.deploy.arm64.yml `
+  --env-file secrets/deploy-smoke/.env `
+  down -v
+```
+
+Verified locally (Task 9.4): frontend build ~4 min, backend ~9 min (QEMU); emulated stack healthy; ping/SPA/health **200**; metrics **404**. Redis on Docker Desktop QEMU required `--ignore-warnings ARM64-COW-BUG` (in arm64 override) — re-check on native A1 without that flag first.
+
+Recommended free VM (plan only): **2 OCPU / 6–12 GB**, Kafka + outbound webhooks **off**. Capacity still **UNVERIFIED**. See [DEPLOYMENT_PLAN.md](DEPLOYMENT_PLAN.md).
 
 ## 13. Operations & backup (Task 8.7)
 
@@ -355,4 +507,5 @@ JWT PEMs mount read-only at `/run/secrets/*.pem`. Placeholder template: [`.env.p
 - [OPERATIONS.md](OPERATIONS.md)
 - [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md)
 - [AI_HANDOFF.md](AI_HANDOFF.md)
+- [DEPLOYMENT_PLAN.md](DEPLOYMENT_PLAN.md)
 - [../AGENTS.md](../AGENTS.md)

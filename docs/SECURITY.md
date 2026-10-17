@@ -1,6 +1,6 @@
 # PayFlow — Security Notes
 
-**Status:** Portfolio hardening through Phase 8.8 (local verify) — **not** a claim of production, PCI, or fraud-certification compliance.
+**Status:** Portfolio hardening through Phase 8.8 + Task 9.2 local HTTPS Secure-cookie verify — **not** a claim of production, PCI, or fraud-certification compliance.
 
 ## Implemented controls
 
@@ -50,8 +50,9 @@
 14. CSP still allows `style-src 'unsafe-inline'` for React/Recharts inline styles; tighten when UI no longer needs it.
 15. TLS certificates are not stored in Git; terminate TLS at a reverse proxy and set `X-Forwarded-Proto` (`server.forward-headers-strategy: framework` on `prod`).
 16. Deploy Compose (`infra/docker-compose.deploy.yml`) keeps DB/Redis/backend off the host network; only the frontend publishes a loopback port. Remote GitHub Actions runs not verified until push.
-17. Local deploy smoke over HTTP can probe APIs and confirm `Secure` cookie attributes, but browsers generally will not persist `Secure` refresh cookies without HTTPS.
-18. Application logs may retain correlation ids on the host Docker volume; rotate/redact before sharing dumps. Backup dumps under `backups/` are sensitive — keep ACLs tight and never commit them (see [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md)).
+17. Task **9.2** local HTTPS override (`infra/docker-compose.deploy.https.yml`) terminates TLS in the existing Nginx frontend (no extra proxy container). Self-signed certs live under `secrets/local-https/` (gitignored). Playwright used narrowly scoped `ignoreHTTPSErrors` — that proves Secure-cookie session behavior, **not** OS-trusted certificate validation. No HSTS on the local HTTPS template (avoids sticky localhost browser HSTS).
+18. `ProductionSecurityValidator` still rejects localhost CORS on `prod`. Local HTTPS E2E relies on same-origin Nginx proxy; do not weaken Secure cookies or the validator for convenience.
+19. Application logs may retain correlation ids on the host Docker volume; rotate/redact before sharing dumps. Backup dumps under `backups/` are sensitive — keep ACLs tight and never commit them (see [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md)).
 
 ## Logging redaction expectations
 
@@ -81,4 +82,5 @@ See [`.env.production.example`](../.env.production.example). Required at minimum
 - Losing/rotating `WEBHOOK_SECRET_ENCRYPTION_KEY` makes existing webhook ciphertext unreadable — plan re-encryption or re-issue before rotation.
 - Prefer same-origin Nginx SPA + API proxy so refresh cookies stay first-party; do not put refresh tokens in JS storage.
 - Deploy Compose: prepare PEMs/env outside Git (`.\scripts\prepare-deploy-smoke-secrets.ps1` → `secrets/deploy-smoke/`); never commit that directory.
+- Local HTTPS smoke: `.\scripts\prepare-deploy-https-smoke.ps1` → `secrets/deploy-https/` + `secrets/local-https/`; never commit. See [SETUP.md](SETUP.md) §12a.
 - Day-to-day ops: [OPERATIONS.md](OPERATIONS.md). Postgres dump/restore: [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) (no automatic live overwrite).

@@ -53,5 +53,6 @@ Portfolio-grade **simulated** fintech platform: merchants, API keys, payments, r
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Target design |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | ADRs |
 | [docs/SETUP.md](docs/SETUP.md) | How to run locally |
+| [docs/DEPLOYMENT_PLAN.md](docs/DEPLOYMENT_PLAN.md) | ₹0 hosting plan (Task 9.3); Oracle Always Free A1 |
 | [docs/API_AUTHENTICATION.md](docs/API_AUTHENTICATION.md) | JWT / API-key auth |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security controls and limits |

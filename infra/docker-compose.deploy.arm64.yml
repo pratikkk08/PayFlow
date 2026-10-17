@@ -1,0 +1,72 @@
+# Optional ARM64 / Oracle A1 readiness override (Task 9.4).
+# Preserves infra/docker-compose.deploy.yml defaults. Does not provision cloud resources.
+#
+# Local validation (emulation on amd64 hosts — not native Ampere):
+#   .\scripts\build-deploy-images-arm64.ps1
+#   .\scripts\prepare-deploy-smoke-secrets.ps1   # or reuse secrets/deploy-smoke/
+#   docker compose -p payflow-arm64-smoke `
+#     -f infra/docker-compose.deploy.yml `
+#     -f infra/docker-compose.deploy.arm64.yml `
+#     --env-file secrets/deploy-smoke/.env `
+#     up -d
+#
+# Native Oracle A1: build on the VM (same script) — do not copy amd64-only images.
+# Kafka profile stays off. No registry push. Secrets stay outside Git.
+
+services:
+  postgres:
+    platform: linux/arm64
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  redis:
+    platform: linux/arm64
+    # Docker Desktop QEMU arm64 hosts hit Redis ARM64-COW-BUG and exit.
+    # Safe for local emulation smoke (AOF/RDB already off). On native Ampere A1,
+    # prefer the base command without ignore-warnings unless Redis refuses to start.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--ignore-warnings", "ARM64-COW-BUG"]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 32M
+
+  backend:
+    platform: linux/arm64
+    image: payflow-backend:deploy-arm64
+    environment:
+      # Free-tier-safe defaults (override via env file; never commit secrets).
+      PAYFLOW_KAFKA_ENABLED: ${PAYFLOW_KAFKA_ENABLED:-false}
+      PAYFLOW_KAFKA_CONSUMER_ENABLED: ${PAYFLOW_KAFKA_CONSUMER_ENABLED:-false}
+      PAYFLOW_OUTBOX_PUBLISHER_ENABLED: ${PAYFLOW_OUTBOX_PUBLISHER_ENABLED:-false}
+      PAYFLOW_WEBHOOK_DELIVERY_ENABLED: ${PAYFLOW_WEBHOOK_DELIVERY_ENABLED:-false}
+      # Leave headroom for OS + Docker + Postgres on 6–12 GB A1 VMs.
+      JAVA_TOOL_OPTIONS: ${BACKEND_JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=20.0 -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom}
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 256M
+
+  frontend:
+    platform: linux/arm64
+    image: payflow-frontend:deploy-arm64
+    environment:
+      PAYFLOW_BACKEND_HOST: backend
+      PAYFLOW_BACKEND_PORT: "8080"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 16M
+
+networks:
+  internal:
+    name: payflow_deploy_arm64_internal

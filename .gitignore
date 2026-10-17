@@ -21,15 +21,20 @@ ehthumbs.db
 .env.*
 !.env.example
 !.env.*.example
+!.env.a1.example
 *.pem
 *.p12
 *.jks
+*.crt
+*.key
 secrets/
 credentials/
 local-secrets/
 backend/local-secrets/
 **/jwt-private.pem
 **/jwt-public.pem
+**/tls.crt
+**/tls.key
 
 # --- Java / Maven ---
 backend/target/
