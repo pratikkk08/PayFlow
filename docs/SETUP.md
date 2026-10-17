@@ -1,6 +1,6 @@
 # PayFlow — Local Setup
 
-**Status:** Phase 2 verified on Windows 11 + Docker Desktop (2026-10-12)
+**Status:** Phase 7.1 frontend foundation on Windows 11 + Docker Desktop (2026-10-16)
 
 ## 1. Prerequisites
 
@@ -8,7 +8,7 @@
 |------|--------|-------|
 | Windows 11 | — | PowerShell |
 | Java JDK | 21 | Temurin verified: `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot` |
-| Node.js | 22+ / 24 | Frontend not required for Phase 1 |
+| Node.js | 22+ / 24 | Required for `frontend/` (verified Node 24 + npm 11) |
 | Git | 2.x | — |
 | Docker Desktop | WSL 2 | Engine must be running |
 | Maven | Wrapper only | `backend\mvnw.cmd` |
@@ -128,9 +128,25 @@ Invoke-RestMethod http://localhost:8080/actuator/health
 | Kafka restart loop | Bad cluster id / listeners | Use current `infra/docker-compose.yml`; recreate kafka volume only if needed |
 | Parent POM `4.1.1.RELEASE` missing | Wrong version string | Use `4.1.1` (Maven Central) |
 
-## 8. Related docs
+## 8. Frontend (Phase 7)
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+- App: `http://localhost:5173` (Vite may fall back to **5174** if 5173 is busy) — proxies `/api/v1` and `/actuator` to Spring Boot `http://localhost:8080` (not bare `/api`, so SPA `/api-keys` is served correctly)
+- Auth: `/login`, `/register`; dashboard routes require a browser session
+- Session: access JWT in memory; refresh via HttpOnly cookie on `/api/v1/auth/browser/**` (CSRF required; local profile sets `cookie-secure: false` for HTTP)
+- CORS (local): `http://localhost:5173` and `:5174` (and 127.0.0.1 equivalents)
+- Optional: copy `frontend/.env.example` → `frontend/.env` (never put secrets or refresh tokens in Vite env)
+- Checks: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`
+
+## 9. Related docs
 
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [ROADMAP.md](ROADMAP.md)
 - [ENVIRONMENT_REPORT.md](ENVIRONMENT_REPORT.md)
+- [AI_HANDOFF.md](AI_HANDOFF.md)
 - [../AGENTS.md](../AGENTS.md)

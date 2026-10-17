@@ -18,6 +18,10 @@ payflow:
       auto-generate-keys: true
       private-key-path: local-secrets/jwt-private.pem
       public-key-path: local-secrets/jwt-public.pem
+    browser-session:
+      # Localhost HTTP via Vite proxy — Secure cookies would not be stored by the browser.
+      cookie-secure: false
+      cookie-same-site: Lax
     api-key:
       hash-pepper: ${API_KEY_HASH_PEPPER:local-dev-api-key-pepper-change-me}
     webhook:

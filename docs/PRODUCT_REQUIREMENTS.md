@@ -1,6 +1,6 @@
 # PayFlow — Product Requirements
 
-**Status:** Phase 6 risk rules and merchant analytics implemented; React dashboard not started  
+**Status:** Phase 7 React merchant dashboard implemented (auth, merchants, analytics, payments/refunds, API keys, webhooks)  
 **Last updated:** 2026-10-16
 
 ## 1. Vision
@@ -89,9 +89,10 @@ MVP is reached when Phases 1–5 acceptance criteria in [ROADMAP.md](ROADMAP.md)
 - Docker Compose for PostgreSQL, Redis, Kafka (and app later).
 - Automated backend tests for domain-critical paths (state machine, idempotency, money).
 
-### 5.7 Frontend (MVP stretch vs core)
+### 5.7 Frontend (Phase 7 — done)
 
-- Minimal React dashboard: login, API key management view, transaction list, refund action, webhook config — may land in a dedicated phase after core APIs are stable. See roadmap for sequencing.
+- React operator console: register/login, merchant CRUD + selection, analytics charts, simulated payments/refunds, API-key create/list/revoke, webhook endpoint CRUD.
+- Browser session: memory access JWT + HttpOnly refresh cookie + CSRF. No real card data collected.
 
 ## 6. Future / advanced features (post-MVP)
 
@@ -118,7 +119,7 @@ MVP is reached when Phases 1–5 acceptance criteria in [ROADMAP.md](ROADMAP.md)
 | FR-06 | Webhooks are signed and retryable | MVP |
 | FR-07 | Risk rules can block or flag simulated payments | Done (Phase 6) |
 | FR-08 | Analytics endpoints summarize volume/success rates | Done (Phase 6) |
-| FR-09 | Dashboard operators can browse transactions | Phase 7 |
+| FR-09 | Dashboard operators can browse transactions | Done (Phase 7) |
 
 ## 8. Non-functional requirements
 

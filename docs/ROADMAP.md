@@ -126,10 +126,12 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] Vite + React + TS + Tailwind app under `frontend/`
-- [ ] Core flows usable against local API
-- [ ] Basic frontend tests
-- [ ] No real card data collected
+- [x] Vite + React + TS + Tailwind app under `frontend/`
+- [x] Core flows usable against local API
+- [x] Basic frontend tests
+- [x] No real card data collected
+
+**Delivered (2026-10-17):** browser session auth; merchant selection; analytics dashboard; simulated payments/refunds with idempotency; API-key and webhook management; Vitest suite; live local smoke.
 
 ---
 

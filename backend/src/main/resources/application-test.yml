@@ -32,6 +32,9 @@ payflow:
       audience: payflow-api-test
     refresh-token:
       ttl: 7d
+    browser-session:
+      cookie-secure: false
+      cookie-same-site: Lax
     api-key:
       hash-pepper: test-api-key-pepper-not-for-production
     webhook:

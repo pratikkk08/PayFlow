@@ -4,6 +4,27 @@ Chronological record of meaningful work. Newest entries at the top.
 
 ---
 
+## 2026-10-17 — Phase 7: React merchant dashboard & secure browser auth
+
+### Done
+
+- Branch `feature/phase-7-frontend` from Phase 6 (`f943e87`).
+- Vite 7 + React 19 + TypeScript + Tailwind 4 SPA: dashboard shell, auth, merchants, analytics, payments/refunds, API keys, webhooks.
+- Browser session: memory access JWT, HttpOnly refresh cookie, CSRF on browser login/refresh/logout; concurrent refresh single-flight; merchant-scoped query cache isolation.
+- Backend browser-auth endpoints + CORS for Vite `5173`/`5174`; Vite proxy `/api/v1` (avoids swallowing SPA `/api-keys`).
+- Secret UX: one-time API-key and webhook signing-secret reveal; not persisted in storage/query cache; OS clipboard caveat documented.
+- Verification: frontend **82** tests + typecheck/lint/build; `npm audit --omit=dev` **0** vulnerabilities; backend `clean verify` **211** tests; live local smoke (register/login path, merchants, analytics, payments/refunds, keys, webhooks).
+
+### Not done
+
+- CI, Playwright suite, risk rule-management UI/APIs, webhook secret rotation, access JWT denylist
+
+### Next
+
+Phase 8: CI, hardening, portfolio polish.
+
+---
+
 ## 2026-10-16 — Phase 6: Risk rules & merchant analytics
 
 ### Done

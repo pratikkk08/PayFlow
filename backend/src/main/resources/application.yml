@@ -135,6 +135,12 @@ payflow:
       auto-generate-keys: ${JWT_AUTO_GENERATE_KEYS:false}
     refresh-token:
       ttl: ${REFRESH_TOKEN_TTL:7d}
+    browser-session:
+      refresh-cookie-name: payflow_refresh
+      refresh-cookie-path: /api/v1/auth/browser
+      # Override per profile: false for local HTTP, true for HTTPS production.
+      cookie-secure: ${PAYFLOW_REFRESH_COOKIE_SECURE:true}
+      cookie-same-site: Lax
     api-key:
       hash-pepper: ${API_KEY_HASH_PEPPER:change-me-local-pepper}
     webhook:

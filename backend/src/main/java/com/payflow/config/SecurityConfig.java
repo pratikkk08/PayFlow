@@ -1,5 +1,8 @@
 package com.payflow.config;
 
+import java.util.List;
+import java.util.function.Supplier;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,15 +17,28 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.payflow.shared.security.ApiKeyAuthenticationFilter;
 import com.payflow.shared.security.AuthRateLimitFilter;
 import com.payflow.shared.security.PayflowBearerTokenResolver;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -46,8 +62,20 @@ public class SecurityConfig {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+		csrfTokenRepository.setCookiePath("/");
+		csrfTokenRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax"));
+
+		RequestMatcher browserSessionCsrf = new OrRequestMatcher(
+				PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/browser/login"),
+				PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/browser/refresh"),
+				PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/browser/logout"));
+
 		http
-				.csrf(AbstractHttpConfigurer::disable)
+				.csrf(csrf -> csrf
+						.csrfTokenRepository(csrfTokenRepository)
+						.csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
+						.requireCsrfProtectionMatcher(browserSessionCsrf))
 				.httpBasic(AbstractHttpConfigurer::disable)
 				.formLogin(AbstractHttpConfigurer::disable)
 				.logout(AbstractHttpConfigurer::disable)
@@ -63,7 +91,8 @@ public class SecurityConfig {
 								"/api/v1/auth/register",
 								"/api/v1/auth/login",
 								"/api/v1/auth/refresh",
-								"/api/v1/auth/logout")
+								"/api/v1/auth/logout",
+								"/api/v1/auth/browser/**")
 						.permitAll()
 						.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -75,7 +104,8 @@ public class SecurityConfig {
 				.exceptionHandling(ex -> ex
 						.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
 				.addFilterBefore(authRateLimitFilter, BearerTokenAuthenticationFilter.class)
-				.addFilterBefore(apiKeyAuthenticationFilter, BearerTokenAuthenticationFilter.class);
+				.addFilterBefore(apiKeyAuthenticationFilter, BearerTokenAuthenticationFilter.class)
+				.addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class);
 
 		return http.build();
 	}
@@ -83,13 +113,58 @@ public class SecurityConfig {
 	@Bean
 	CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+		// Include common Vite fallback ports when 5173 is already bound locally.
+		configuration.setAllowedOrigins(List.of(
+				"http://localhost:5173",
+				"http://127.0.0.1:5173",
+				"http://localhost:5174",
+				"http://127.0.0.1:5174"));
 		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id", "X-XSRF-TOKEN"));
 		configuration.setAllowCredentials(true);
 		configuration.setMaxAge(3600L);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", configuration);
 		return source;
+	}
+
+	/**
+	 * SPA-friendly CSRF: BREACH-resistant XOR for form params; plain token accepted from header.
+	 * Forces token materialization so the non-HttpOnly XSRF-TOKEN cookie is written.
+	 */
+	static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
+
+		private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
+		private final CsrfTokenRequestHandler xor = new XorCsrfTokenRequestAttributeHandler();
+
+		@Override
+		public void handle(HttpServletRequest request, HttpServletResponse response,
+				Supplier<CsrfToken> csrfToken) {
+			this.xor.handle(request, response, csrfToken);
+			csrfToken.get();
+		}
+
+		@Override
+		public String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken csrfToken) {
+			String headerValue = request.getHeader(csrfToken.getHeaderName());
+			return (StringUtils.hasText(headerValue) ? this.plain : this.xor)
+					.resolveCsrfTokenValue(request, csrfToken);
+		}
+	}
+
+	/**
+	 * Ensures deferred CSRF tokens are loaded so the cookie is present for the SPA.
+	 */
+	static final class CsrfCookieFilter extends OncePerRequestFilter {
+
+		@Override
+		protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+				FilterChain filterChain) throws ServletException, java.io.IOException {
+			CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+			if (csrfToken != null) {
+				csrfToken.getToken();
+			}
+			filterChain.doFilter(request, response);
+		}
 	}
 }

@@ -5,7 +5,8 @@
 | Type | Transport | Used for |
 |------|-----------|----------|
 | User access JWT | `Authorization: Bearer <jwt>` | `/api/v1/users/**`, `/api/v1/merchants/**` |
-| Refresh token | JSON body `{ "refreshToken": "..." }` | `/api/v1/auth/refresh`, `/logout` |
+| Refresh token (API) | JSON body `{ "refreshToken": "..." }` | `/api/v1/auth/refresh`, `/api/v1/auth/logout` |
+| Refresh token (browser) | HttpOnly cookie `payflow_refresh` | `/api/v1/auth/browser/refresh`, `/logout` |
 | Merchant secret key | `Authorization: Bearer sk_test_...` | `/api/v1/integrations/**` (future payment APIs) |
 | Publishable key | `pk_test_...` | Identification only — **not** auth |
 
@@ -16,11 +17,23 @@ JWT and API-key Bearer values are deliberately non-overlapping formats.
 | Method | Path | Auth |
 |--------|------|------|
 | POST | `/api/v1/auth/register` | Public |
-| POST | `/api/v1/auth/login` | Public |
+| POST | `/api/v1/auth/login` | Public (JSON tokens) |
 | POST | `/api/v1/auth/refresh` | Public (refresh body) |
 | POST | `/api/v1/auth/logout` | Public (refresh body) |
+| GET | `/api/v1/auth/browser/csrf` | Public (issues `XSRF-TOKEN` cookie) |
+| POST | `/api/v1/auth/browser/login` | Public + CSRF; refresh cookie set |
+| POST | `/api/v1/auth/browser/refresh` | Public + CSRF; cookie in/out |
+| POST | `/api/v1/auth/browser/logout` | Public + CSRF; revokes + clears cookie |
 | GET | `/api/v1/users/me` | JWT |
 | GET | `/api/v1/integrations/me` | Secret API key |
+
+### Browser SPA session (Task 7.3)
+
+- Short-lived **access JWT** returned in JSON only; frontend keeps it **in memory**.
+- **Refresh** is never returned in browser JSON; it is stored in an **HttpOnly** cookie (`payflow_refresh`, Path=`/api/v1/auth/browser`, SameSite=`Lax`).
+- `Secure` is **false** on `local`/`test` (HTTP localhost); **true** on `prod`.
+- Cookie-authenticated browser POSTs require double-submit CSRF (`XSRF-TOKEN` cookie + `X-XSRF-TOKEN` header).
+- Existing JSON login/refresh/logout endpoints remain for tests and non-browser clients.
 
 ## JWT claims (access)
 
@@ -55,4 +68,5 @@ Merchant secret keys will authorize payment/refund APIs scoped to the key’s me
 
 - Swagger UI: `http://localhost:8080/swagger-ui.html` (local profile)
 - Prefer short-lived access tokens; treat refresh tokens as secrets
-- Frontend must choose cookie+CSRF or equivalent — do not assume `localStorage` for long-lived secrets
+- SPA uses Vite proxy (`localhost:5173` → `:8080`) so refresh cookies are same-site to the UI origin
+- Never store refresh tokens in `localStorage` / `sessionStorage` / IndexedDB

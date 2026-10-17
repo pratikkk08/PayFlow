@@ -27,6 +27,9 @@ payflow:
   security:
     jwt:
       auto-generate-keys: false
+    browser-session:
+      cookie-secure: true
+      cookie-same-site: Lax
     rate-limit:
       fail-closed-when-redis-unavailable: true
 

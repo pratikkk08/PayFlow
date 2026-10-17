@@ -1,7 +1,7 @@
 # PayFlow — Architecture
 
-**Status:** Target architecture for a modular monolith. Phase 1 foundation (Boot app, Compose, Flyway baseline, ping/security) is implemented; domain modules remain planned.  
-**Last updated:** 2026-10-12
+**Status:** Modular monolith with Phases 1–7 implemented (backend domains + React operator console).  
+**Last updated:** 2026-10-17
 
 ## 1. Overview
 
@@ -191,7 +191,7 @@ Operations: Micrometer gauges for pending/failed/expired outbox and webhook rows
 | Unit | JUnit 5, Mockito | State machine, money, idempotency hashing, signature |
 | Integration | Testcontainers (Postgres, Redis, Kafka as needed) | Repositories, Flyway, API slices |
 | API | MockMvc / WebTestClient | Auth, validation, status codes |
-| Frontend | Vitest/React Testing Library (when app exists) | Components/hooks |
+| Frontend | Vitest + React Testing Library | Auth, merchants, analytics, payments/refunds, API keys, webhooks |
 | E2E | Playwright (later) | Critical merchant journeys |
 | Manual | Compose stack | Smoke on Windows + Docker |
 
@@ -234,6 +234,10 @@ Merchant-scoped rules (`AMOUNT_THRESHOLD`, `PAYMENT_VELOCITY`, `REPEATED_FAILURE
 
 Read-only JWT OWNER endpoints: `GET /api/v1/merchants/{id}/analytics/overview` and `.../daily`. UTC calendar dates (inclusive) map to half-open instants; default last 30 days; max 366. Status counts use current status among payments created in-window; amounts use `captured_at` / SUCCEEDED `completed_at` / risk `evaluated_at`. Live SQL aggregates (no Redis). Sandbox activity only — not settled balances.
 
-## 16. Explicit honesty
+## 16. React operator console (Phase 7)
 
-Phases 2–6 are **implemented** on `feature/phase-6-risk-analytics`: identity through risk evaluation and merchant analytics. The React UI, risk rule-management APIs, and manual review approval are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Vite 7 + React 19 + TypeScript + Tailwind 4 SPA under `frontend/`. Axios client proxies `/api/v1` via Vite. Auth: access JWT in memory; refresh HttpOnly cookie + CSRF on `/api/v1/auth/browser/**`; concurrent refresh single-flight. Merchant selection persists merchant id only (validated against owned list); TanStack Query keys scoped by merchant and cleared on switch/logout. Surfaces: analytics (real backend aggregates), simulated payments/refunds with stable idempotency keys, API-key and webhook management with one-time secret reveal (not query-cached).
+
+## 17. Explicit honesty
+
+Phases 2–7 are **implemented** on `feature/phase-7-frontend` (backend tip from Phase 6 `f943e87` plus SPA). Risk rule-management APIs, manual review approval, CI, and webhook secret rotation are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Access JWTs are not denylisted on logout. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).

@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 6 — risk rules and merchant analytics.** Identity through webhooks (Phases 2–5) plus configurable risk evaluation on authorize, velocity concurrency controls, immutable risk assessments, and JWT-owner merchant analytics (overview/daily, UTC) are implemented. Outbound webhook HTTP and the Kafka publisher stay off unless explicitly enabled.
+**Phase 7 — React merchant dashboard (complete on `feature/phase-7-frontend`).** Secure browser auth (memory access JWT + HttpOnly refresh cookie + CSRF), merchants, analytics, simulated payments/refunds, API-key and webhook management UIs against the local API.
 
-Not yet built: React dashboard, risk rule-management APIs, manual review approval workflow, CI, webhook secret rotation, and a self-service ADMIN grant.
+Not yet built: risk rule-management APIs, manual review approval, CI, webhook secret rotation, Playwright E2E suite, self-service ADMIN grant.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -69,9 +69,9 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 3 | Payments state machine & simulated processor |
 | 4 | Refunds, ledger, idempotency hardening |
 | 5 | Webhooks, outbox, Kafka consumers |
-| 6 | Risk rules & analytics ← **current** |
-| 7 | React dashboard |
-| 8 | CI, hardening, portfolio polish |
+| 6 | Risk rules & analytics |
+| 7 | React dashboard ← **done** (branch `feature/phase-7-frontend`) |
+| 8 | CI, hardening, portfolio polish ← **next** |
 
 Full plan: [docs/ROADMAP.md](docs/ROADMAP.md). Product scope: [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md).
 
@@ -79,7 +79,7 @@ Full plan: [docs/ROADMAP.md](docs/ROADMAP.md). Product scope: [docs/PRODUCT_REQU
 
 ```
 backend/              Spring Boot application (Phase 1+)
-frontend/             React + TypeScript client (later)
+frontend/             React + TypeScript + Vite client (Phase 7+)
 infra/                Docker Compose and infrastructure assets
 scripts/              Local helper scripts
 docs/                 Requirements, architecture, roadmap, decisions, logs
@@ -96,6 +96,15 @@ docker compose -f infra/docker-compose.yml --env-file .env up -d
 cd backend
 .\mvnw.cmd clean verify
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+Frontend (separate terminal; Node 22+/24 on PATH):
+
+```powershell
+cd frontend
+npm install
+npm run dev
+# http://localhost:5173  (proxies /api/v1 → localhost:8080)
 ```
 
 - Ping: `http://localhost:8080/api/v1/system/ping`

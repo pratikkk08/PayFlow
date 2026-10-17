@@ -1,6 +1,6 @@
 # PayFlow — Security Notes
 
-**Status:** Local/portfolio hardening through Phase 6 — **not** a claim of production, PCI, or fraud-certification compliance.
+**Status:** Local/portfolio hardening through Phase 7 (React SPA + browser session) — **not** a claim of production, PCI, or fraud-certification compliance.
 
 ## Implemented controls
 
@@ -17,7 +17,11 @@
 | Authorization | Service-layer ownership checks; cross-tenant access returns **404** |
 | Rate limiting | Redis counters on register/login/refresh; **fail-closed** if Redis unavailable |
 | Errors | JSON `ApiError` without stack traces |
-| CORS | Explicit localhost Vite origins only (no `*` production policy) |
+| CORS | Explicit localhost Vite origins (`5173`/`5174`) only (no `*` production policy); credentials + `X-XSRF-TOKEN` allowed |
+| Browser SPA session | Access JWT in memory only (never localStorage/sessionStorage/IndexedDB); refresh in HttpOnly `payflow_refresh` cookie; concurrent refresh single-flight on client |
+| CSRF | Required only for `/api/v1/auth/browser/{login,refresh,logout}`; CookieCsrfTokenRepository + SPA `X-XSRF-TOKEN` header |
+| SPA secret UX | API-key / webhook signing secrets revealed once in UI; not cached in TanStack Query; cleared on dialog close / merchant switch / logout |
+| Clipboard | Copy Secret may leave plaintext in the OS clipboard until overwritten — documented in the reveal dialog |
 | OpenAPI UI | Enabled for `local`; disabled for `prod` profile |
 | Webhook signing secrets | Per-endpoint `whsec_…` secrets; AES-256-GCM at rest via `WEBHOOK_SECRET_ENCRYPTION_KEY`; plaintext returned once on create |
 | Webhook URL registration | HTTPS only; reject credentials, fragments, IP literals, localhost/metadata hostnames. **No outbound fetch at registration** |
@@ -31,7 +35,7 @@
 
 1. **No email verification** in Phase 2.
 2. Access JWTs remain valid until expiry after logout (no denylist yet).
-3. Browser token storage/CSRF strategy is **not** finalized — API returns JSON tokens for local/automated use only.
+3. Browser SPA uses HttpOnly refresh cookie + CSRF; JSON token APIs remain for non-browser clients. Access JWTs are still not instantly revoked on logout.
 4. Rate limiting is basic (IP-based), not account-aware abuse protection.
 5. `ADMIN` is not self-assignable. Registration grants `USER` only. There is no role-grant API. Putting `ADMIN` in `user_roles` is an explicitly trusted operator action and must be recorded in the operator's own change log; the application does not write an audit row for that insert. After the insert, that user logs in and the JWT `roles` claim includes `ADMIN`. `GET /api/v1/internal/events/health` and `/actuator/metrics` require that role. `EventRecoveryService` requeues terminal `FAILED` rows internally and audits `outbox_event_requeued` / `webhook_delivery_requeued` with the id only. HTTP retry endpoints are not exposed.
 6. LIVE API key mode is modeled (`mode`) but only TEST keys are issued.

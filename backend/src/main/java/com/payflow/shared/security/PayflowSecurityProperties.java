@@ -9,6 +9,7 @@ public class PayflowSecurityProperties {
 
 	private final Jwt jwt = new Jwt();
 	private final RefreshToken refreshToken = new RefreshToken();
+	private final BrowserSession browserSession = new BrowserSession();
 	private final ApiKey apiKey = new ApiKey();
 	private final RateLimit rateLimit = new RateLimit();
 	private final Webhook webhook = new Webhook();
@@ -19,6 +20,10 @@ public class PayflowSecurityProperties {
 
 	public RefreshToken getRefreshToken() {
 		return refreshToken;
+	}
+
+	public BrowserSession getBrowserSession() {
+		return browserSession;
 	}
 
 	public ApiKey getApiKey() {
@@ -99,6 +104,51 @@ public class PayflowSecurityProperties {
 
 		public void setTtl(Duration ttl) {
 			this.ttl = ttl;
+		}
+	}
+
+	/**
+	 * HttpOnly refresh cookie for SPA browser sessions.
+	 * JSON {@code /api/v1/auth/login|refresh|logout} remain available for non-browser clients.
+	 */
+	public static class BrowserSession {
+		private String refreshCookieName = "payflow_refresh";
+		private String refreshCookiePath = "/api/v1/auth/browser";
+		/** Must be false on plain HTTP localhost; true in production HTTPS. */
+		private boolean cookieSecure = true;
+		/** Lax | Strict | None */
+		private String cookieSameSite = "Lax";
+
+		public String getRefreshCookieName() {
+			return refreshCookieName;
+		}
+
+		public void setRefreshCookieName(String refreshCookieName) {
+			this.refreshCookieName = refreshCookieName;
+		}
+
+		public String getRefreshCookiePath() {
+			return refreshCookiePath;
+		}
+
+		public void setRefreshCookiePath(String refreshCookiePath) {
+			this.refreshCookiePath = refreshCookiePath;
+		}
+
+		public boolean isCookieSecure() {
+			return cookieSecure;
+		}
+
+		public void setCookieSecure(boolean cookieSecure) {
+			this.cookieSecure = cookieSecure;
+		}
+
+		public String getCookieSameSite() {
+			return cookieSameSite;
+		}
+
+		public void setCookieSameSite(String cookieSameSite) {
+			this.cookieSameSite = cookieSameSite;
 		}
 	}
 

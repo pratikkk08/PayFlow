@@ -1,82 +1,75 @@
 # PayFlow — AI Handoff
 
-**Updated:** 2026-10-16  
+**Updated:** 2026-10-17  
 **Purpose:** Minimal context for a new Cursor Agent chat. Prefer this + `AGENTS.md` over re-reading the whole repo history.
 
 ## Objective
 
-Simulated payment platform (portfolio): merchants, API keys, payments, refunds, ledger, domain events, signed webhooks, risk, analytics. **Sandbox only — no real cards or live funds.**
+Simulated payment platform (portfolio): merchants, API keys, payments, refunds, ledger, events, webhooks, risk, analytics, React UI. **Sandbox only — no real cards or live funds.**
 
-## Stack (implemented)
+## Stack
 
 | Area | Choice |
 |------|--------|
-| Backend | Java 21, Spring Boot **4.1.1**, Security, JPA, Flyway, Validation, Actuator |
-| Auth | OAuth2 Resource Server (RS256 JWT), BCrypt, opaque refresh tokens |
-| Docs API | springdoc-openapi **3.1.1** |
-| DB / cache | PostgreSQL 16 (host **5433**), Redis 7 (**6379**) |
-| Messaging | Kafka optional; topic `payflow.domain-events.v1` (+ DLT) |
-| Webhooks | Registration + signed delivery (HTTP off unless enabled) |
-| Risk | V17–V18 + evaluate/authorize/velocity/audit (simulated rules, not fraud cert) |
-| Analytics | V19 indexes + overview/daily UTC read APIs |
-| Build | Maven Wrapper (`backend\mvnw.cmd`) |
-| Frontend | Not started |
+| Backend | Java 21, Spring Boot **4.1.1**, Flyway V1–V19 |
+| Frontend | React 19 + TypeScript + Vite 7 + Tailwind 4 + React Router 7 + TanStack Query 5 + Axios + Recharts + Vitest |
+| Auth | JWT access (memory) + opaque refresh; browser: HttpOnly cookie + CSRF |
+| Ports | App **8080**, Vite **5173** (fallback **5174**), Postgres **5433**, Redis **6379** |
 
 ## Git
 
 | Item | Value |
 |------|--------|
-| Branch | `feature/phase-6-risk-analytics` |
-| Phase 6 | Committed checkpoint (see `git log -1`); not pushed/merged |
-| Remote | None configured; do not push unless asked |
+| Branch | `feature/phase-7-frontend` |
+| Phase 7 commit | See `git log -1` after Task 7.8 checkpoint |
+| Remote | None; do not push unless asked |
 
 ## Completed phases
 
-| Phase | Status | Highlights |
-|-------|--------|------------|
-| 0–5 | Done | Identity → webhooks/outbox/Kafka |
-| 6 | **Done** | Risk engine + merchant analytics (V17–V19) |
-| 7 | Next | React dashboard |
+| Phase | Status |
+|-------|--------|
+| 0–6 | Done (backend through risk + analytics) |
+| 7 | **Done** — React dashboard + browser auth (Tasks 7.1–7.8) |
 
-## Migrations
+## Frontend (Phase 7)
 
-Latest: **V19**. `schema_phase = phase-6`. Hibernate `ddl-auto=validate`.
+- Secure browser session: memory access JWT; HttpOnly refresh; CSRF; concurrent refresh single-flight
+- Merchants + selection; merchant-scoped TanStack Query isolation
+- Analytics dashboard (real backend aggregates only)
+- Simulated payments/refunds with stable idempotency keys
+- API keys + webhooks; one-time secret reveal (not query-cached); OS clipboard caveat documented
+- Vite proxy `/api/v1` only (SPA `/api-keys` safe); CORS allows Vite `5173`/`5174`
 
-## Risk (summary)
+## Limitations
 
-- Rule types: `AMOUNT_THRESHOLD` (`thresholdMinor`), `PAYMENT_VELOCITY` (`maxCount`, `windowSeconds`), `REPEATED_FAILURES` (`maxFailures`, `windowSeconds`).
-- Decisions: BLOCK > REVIEW > FLAG > ALLOW; scores FLAG+25 / REVIEW+50 / BLOCK+100, clamped `[0,100]`.
-- Authorize TX: payment lock → merchant lock → attempt → evaluate → assessment/matches → payment/outbox.
-- REVIEW: hold `CREATED` (no approval API). BLOCK: `FAILED` + `risk_blocked`, one failure event.
-- Snapshots immutable; malformed BLOCK/REVIEW fail closed; FLAG invalid params skipped.
-- Velocity = peer authorize attempts; failures use FAILED `updated_at`. Multi-instance clock skew not corrected.
+- Settings page still a placeholder
+- No webhook secret-rotation API; outbound delivery off by default
+- Access JWT not denylisted on logout (documented)
+- No CI / Playwright suite yet (Phase 8)
+- Risk rule-management UI/APIs not built
 
-## Analytics (summary)
+## Verification (Task 7.8)
 
-- `GET /api/v1/merchants/{id}/analytics/overview` and `.../daily` — JWT OWNER; API key → 403; cross-merchant → 404.
-- UTC inclusive dates → half-open instants; default 30 days; max 366.
-- Status counts vs event amounts (`captured_at` / SUCCEEDED `completed_at` / risk `evaluated_at`).
-- Measured: ~1.2k-row fixture, 7-day window, aggregates typically &lt;1 ms; V19 indexes for narrow windows.
+| Check | Result |
+|-------|--------|
+| Frontend typecheck/lint/test/build | Pass — **82** tests |
+| `npm audit --omit=dev` | **0** vulnerabilities |
+| Backend `mvnw clean verify` | Pass — **211** tests |
+| Browser E2E | Dedicated account: login → merchants A/B → switch → analytics → payment authorize/capture → refund submit → API key create/revoke → webhook create/disable/delete → logout → protected redirect |
 
-## Known limitations
-
-- No risk rule CRUD APIs; no manual review approval.
-- Daily FAILED uses `updated_at` (no `failed_at`).
-- Analytics ≠ settled bank balances; status counts ≠ historical reconstructions.
-- Not a production-certified fraud system.
-
-## Run & test
+## Run
 
 ```powershell
+docker compose -f infra/docker-compose.yml --env-file .env up -d
 . .\scripts\set-java-home.ps1
 cd backend
-.\mvnw.cmd clean verify
+& "C:\Windows\System32\cmd.exe" /c "mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local"
+cd ..\frontend
+npm run dev
 ```
-
-- Last verified: **206 tests passed**, 0 failed (`mvnw clean verify`, 2026-10-16)
 
 ## First actions in a new chat
 
 1. Read `AGENTS.md` + this file.
-2. Next: **Phase 7** — React dashboard (Vite + React + TS + Tailwind).
+2. Next: **Phase 8** — CI, hardening, portfolio polish (optional Playwright).
 3. Do not push unless asked.
