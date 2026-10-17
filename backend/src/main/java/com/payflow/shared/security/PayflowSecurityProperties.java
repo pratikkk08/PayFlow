@@ -1,6 +1,8 @@
 package com.payflow.shared.security;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -13,6 +15,7 @@ public class PayflowSecurityProperties {
 	private final ApiKey apiKey = new ApiKey();
 	private final RateLimit rateLimit = new RateLimit();
 	private final Webhook webhook = new Webhook();
+	private final Cors cors = new Cors();
 
 	public Jwt getJwt() {
 		return jwt;
@@ -36,6 +39,10 @@ public class PayflowSecurityProperties {
 
 	public Webhook getWebhook() {
 		return webhook;
+	}
+
+	public Cors getCors() {
+		return cors;
 	}
 
 	public static class Jwt {
@@ -207,6 +214,22 @@ public class PayflowSecurityProperties {
 
 		public void setEncryptionKeyBase64(String encryptionKeyBase64) {
 			this.encryptionKeyBase64 = encryptionKeyBase64;
+		}
+	}
+
+	/**
+	 * Explicit browser origins for CORS. Empty = no cross-origin access (same-origin Nginx SPA is fine).
+	 * Prod must set {@code PAYFLOW_CORS_ALLOWED_ORIGINS} (comma-separated); never use localhost there.
+	 */
+	public static class Cors {
+		private List<String> allowedOrigins = new ArrayList<>();
+
+		public List<String> getAllowedOrigins() {
+			return allowedOrigins;
+		}
+
+		public void setAllowedOrigins(List<String> allowedOrigins) {
+			this.allowedOrigins = allowedOrigins != null ? allowedOrigins : new ArrayList<>();
 		}
 	}
 }

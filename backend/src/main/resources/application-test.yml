@@ -40,6 +40,10 @@ payflow:
     webhook:
       # Test-only AES-256 key (Base64 of "PayFlowTestWebhookEncKey_32bytes") — not for production.
       encryption-key-base64: UGF5Rmxvd1Rlc3RXZWJob29rRW5jS2V5XzMyYnl0ZXM=
+    cors:
+      allowed-origins:
+        - http://localhost:5173
+        - http://127.0.0.1:5173
     rate-limit:
       enabled: true
       auth-requests-per-minute: 1000

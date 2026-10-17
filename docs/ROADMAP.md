@@ -141,16 +141,25 @@ Phases are sequential. Do not claim a phase complete until its acceptance criter
 
 ### Acceptance criteria
 
-- [ ] CI runs backend tests on PR
-- [ ] Docs match implemented behavior
-- [ ] Known limitations listed honestly
-- [ ] Resource guidance for Docker on 16 GB machines
+- [x] CI workflow present (backend Testcontainers + frontend Node 24); remote GitHub Actions run **not verified** until push
+- [x] Backend/frontend Docker images; deploy Compose with internal-only DB/Redis/backend
+- [x] Production fail-closed secrets; Actuator health/liveness/readiness; Nginx health-only proxy
+- [x] Playwright Chromium E2E (local Vite + Spring Boot); CI E2E deferred
+- [x] Ops + backup/restore runbooks; disposable restore drill on isolated Compose project
+- [x] Docs match implemented behavior; known limitations listed honestly
+- [x] Resource guidance for Docker on ~16 GB machines
+
+**Delivered (2026-10-17):** Tasks 8.1–8.8 on `feature/phase-8-devops` (local verification; no remote CI/push).
 
 ---
 
+## Phase 9 — Recommended next (not started)
+
+Portfolio polish and deployability: remote CI green on GitHub, TLS termination + Secure-cookie browser login verification, optional CI-hosted E2E, OpenTelemetry/metrics export, webhook secret rotation API, risk rule-management APIs — pick based on portfolio goals. **Do not claim Phase 9 complete without acceptance criteria.**
+
 ## Future (unscheduled)
 
-Cloud deployment, OpenTelemetry metrics/traces, chargeback simulation, advanced FX, richer RBAC — see product requirements “future features.”
+Cloud deployment, chargeback simulation, advanced FX, richer RBAC — see product requirements “future features.”
 
 ## Dependency notes
 

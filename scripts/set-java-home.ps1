@@ -8,6 +8,7 @@ if (-not (Test-Path $candidate)) {
 }
 
 $env:JAVA_HOME = $candidate
-$env:Path = "$env:JAVA_HOME\bin;" + ($env:Path -split ';' | Where-Object { $_ -and $_ -notlike '*\Eclipse Adoptium\*' } | Select-Object -Unique) -join ';'
+# Parenthesize -join: otherwise `string + array` space-joins PATH entries and breaks docker/npm/powershell.
+$env:Path = "$env:JAVA_HOME\bin;" + (($env:Path -split ';' | Where-Object { $_ -and $_ -notlike '*\Eclipse Adoptium\*' } | Select-Object -Unique) -join ';')
 Write-Host "JAVA_HOME=$env:JAVA_HOME"
 java -version

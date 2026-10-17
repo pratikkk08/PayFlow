@@ -1,0 +1,41 @@
+# Build context hygiene — keep Maven Wrapper; exclude secrets and local junk.
+target/
+.git/
+.gitignore
+.gitattributes
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+.env
+.env.*
+!.env.example
+
+local-secrets/
+*.pem
+*.key
+*.p12
+*.jks
+
+logs/
+*.log
+*.tmp
+*.bak
+
+# Tests are run in CI / local Maven — skip shipping them into the image build context
+# (sources under src/test are still useful for some Maven goals; exclude heavy outputs only)
+**/surefire-reports/
+**/failsafe-reports/
+
+node_modules/
+dist/
+coverage/
+
+Dockerfile
+.dockerignore
+README.md
+**/.DS_Store
+Thumbs.db

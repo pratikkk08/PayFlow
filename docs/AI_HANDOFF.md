@@ -12,64 +12,52 @@ Simulated payment platform (portfolio): merchants, API keys, payments, refunds, 
 | Area | Choice |
 |------|--------|
 | Backend | Java 21, Spring Boot **4.1.1**, Flyway V1–V19 |
-| Frontend | React 19 + TypeScript + Vite 7 + Tailwind 4 + React Router 7 + TanStack Query 5 + Axios + Recharts + Vitest |
+| Frontend | React 19 + TypeScript + Vite 7 + Tailwind 4 + Vitest + Playwright |
 | Auth | JWT access (memory) + opaque refresh; browser: HttpOnly cookie + CSRF |
-| Ports | App **8080**, Vite **5173** (fallback **5174**), Postgres **5433**, Redis **6379** |
+| Dev ports | App **8080**, Vite **5173**, Postgres **5433**, Redis **6379** |
+| Deploy | `infra/docker-compose.deploy.yml` — frontend loopback only (default **18080**) |
+| Ops | [OPERATIONS.md](OPERATIONS.md), [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) |
 
 ## Git
 
 | Item | Value |
 |------|--------|
-| Branch | `feature/phase-7-frontend` |
-| Phase 7 commit | See `git log -1` after Task 7.8 checkpoint |
-| Remote | None; do not push unless asked |
+| Branch | `feature/phase-8-devops` |
+| Phase 8 checkpoint | See latest commit on branch after Task 8.8 |
+| Remote / GitHub Actions | **NOT VERIFIED** (no push) |
 
-## Completed phases
+## Phase 8 — complete locally (Tasks 8.1–8.8)
 
-| Phase | Status |
-|-------|--------|
-| 0–6 | Done (backend through risk + analytics) |
-| 7 | **Done** — React dashboard + browser auth (Tasks 7.1–7.8) |
+CI workflow, backend/frontend images, prod fail-closed config, deploy Compose, Playwright E2E foundation, ops/backup runbooks, final verification checkpoint.
 
-## Frontend (Phase 7)
-
-- Secure browser session: memory access JWT; HttpOnly refresh; CSRF; concurrent refresh single-flight
-- Merchants + selection; merchant-scoped TanStack Query isolation
-- Analytics dashboard (real backend aggregates only)
-- Simulated payments/refunds with stable idempotency keys
-- API keys + webhooks; one-time secret reveal (not query-cached); OS clipboard caveat documented
-- Vite proxy `/api/v1` only (SPA `/api-keys` safe); CORS allows Vite `5173`/`5174`
-
-## Limitations
-
-- Settings page still a placeholder
-- No webhook secret-rotation API; outbound delivery off by default
-- Access JWT not denylisted on logout (documented)
-- No CI / Playwright suite yet (Phase 8)
-- Risk rule-management UI/APIs not built
-
-## Verification (Task 7.8)
+### Task 8.8 verification (this machine)
 
 | Check | Result |
 |-------|--------|
-| Frontend typecheck/lint/test/build | Pass — **82** tests |
-| `npm audit --omit=dev` | **0** vulnerabilities |
-| Backend `mvnw clean verify` | Pass — **211** tests |
-| Browser E2E | Dedicated account: login → merchants A/B → switch → analytics → payment authorize/capture → refund submit → API key create/revoke → webhook create/disable/delete → logout → protected redirect |
+| Backend `mvnw clean verify` | **242** tests, 0 failures |
+| Frontend typecheck/lint/test/build | Pass; Vitest **82** |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `npm ci` | EPERM on locked native binary once; gates re-run after `npm install` |
+| Playwright E2E | **3** passed |
+| Images | backend **477MB**, frontend **74.9MB**; non-root; readiness healthcheck |
+| Deploy smoke (`payflow-verify-88`, :18081) | All healthy; Flyway **V19**; metrics **404**; Secure CSRF cookie |
+| Prod image without secrets | Fails closed (`DATABASE_URL` unset) |
+| Backup/restore drill | Pass on disposable DB; live name rejected |
+| HTTPS browser Secure-cookie login | **NOT VERIFIED** |
+| Remote GitHub Actions | **NOT VERIFIED** |
 
-## Run
+## Limitations / Phase 9
 
-```powershell
-docker compose -f infra/docker-compose.yml --env-file .env up -d
-. .\scripts\set-java-home.ps1
-cd backend
-& "C:\Windows\System32\cmd.exe" /c "mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local"
-cd ..\frontend
-npm run dev
-```
+- No remote CI proof until push
+- Production HTTPS browser session not verified (do not disable `Secure`)
+- Playwright not in CI yet
+- No Prometheus/Grafana/ELK; logical backup ≠ PITR
+- Not PCI/SOC2
+
+**Next:** Phase 9 portfolio polish (remote CI, TLS login verify, optional CI E2E) — see [ROADMAP.md](ROADMAP.md). Do not implement unless tasked.
 
 ## First actions in a new chat
 
 1. Read `AGENTS.md` + this file.
-2. Next: **Phase 8** — CI, hardening, portfolio polish (optional Playwright).
+2. Confirm git status / latest Phase 8 commit.
 3. Do not push unless asked.

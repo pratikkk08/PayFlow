@@ -63,18 +63,31 @@ management:
   endpoints:
     web:
       exposure:
+        # Local/test may expose metrics; prod profile narrows to health only.
         include: health,info,metrics
   endpoint:
     health:
       show-details: never
       probes:
         enabled: true
+      group:
+        # Process alive — no dependency checks (safe for frequent probes).
+        liveness:
+          include: livenessState
+        # Can serve traffic — Postgres + Redis essential; details never exposed publicly.
+        readiness:
+          include: readinessState,db,redis
   health:
     kafka:
       enabled: ${PAYFLOW_KAFKA_HEALTH_ENABLED:false}
   info:
     env:
       enabled: true
+
+logging:
+  pattern:
+    # Docker-friendly single-line stdout; correlationId from RequestCorrelationFilter MDC.
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] [%X{correlationId:-}] %logger{36} - %msg%n"
 
 springdoc:
   api-docs:
@@ -146,6 +159,9 @@ payflow:
     webhook:
       # Base64 of exactly 32 raw bytes (AES-256-GCM). Never commit real keys.
       encryption-key-base64: ${WEBHOOK_SECRET_ENCRYPTION_KEY:}
+    cors:
+      # Populated by local/test/prod profiles — never a wildcard.
+      allowed-origins: []
     rate-limit:
       enabled: true
       auth-requests-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:30}

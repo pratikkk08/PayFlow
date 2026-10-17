@@ -66,12 +66,19 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
 
 # --- Docker / local data ---
 infra/data/
 **/pgdata/
 **/redis-data/
 **/kafka-data/
+
+# --- Operational backups (never commit dumps) ---
+backups/
 
 # --- Logs / local run output ---
 *.log

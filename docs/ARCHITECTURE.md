@@ -121,7 +121,7 @@ Illegal transitions throw a domain error; persistence uses optimistic locking (`
 |---------|-----------|
 | Merchant HTTP API | `Authorization: Bearer pk_live_...` or `X-Api-Key`; lookup by prefix, verify hash |
 | Dashboard | Session cookie or JWT after password login (bcrypt/argon2 hashed passwords) |
-| Actuator | Restrict to local/admin profile; never expose unchecked in production profiles |
+| Actuator | `prod` exposes health (+ liveness/readiness groups) with `show-details: never`; metrics ADMIN-gated when exposed; Nginx proxies exact health probes only |
 
 **API key storage:** generate high-entropy secret, display once, store `HMAC`/`bcrypt`/`argon2` hash + public prefix. Revocation is immediate via status flag.
 
@@ -200,12 +200,12 @@ CI runs unit + integration on PR once workflows exist. Do not ignore failing tes
 ## 11. Observability
 
 - Structured logs for publish and delivery outcomes. Secrets and payloads are not logged.
-- Actuator `/health` and `/info` are public. `/actuator/metrics` requires `ADMIN`.
+- Actuator `/health`, `/health/liveness`, `/health/readiness` are public (status only). `/info` may be public on local; disabled on `prod`. `/actuator/metrics` requires `ADMIN` and is **not** proxied by Nginx.
 - Gauges refresh on an interval (`payflow.operations.metrics-refresh-ms`, default 15s). Labels are status or outcome only.
 
 ## 12. Deployment topology (local)
 
-Docker Compose services (Phase 1+): `postgres`, `redis`, `kafka` (+ ZooKeeper or KRaft as chosen), later `backend`, later `frontend` or Vite on host.
+Docker Compose: dev infra `infra/docker-compose.yml` (published Postgres/Redis); deploy stack `infra/docker-compose.deploy.yml` (frontend-only host port; backend/DB/Redis internal). Optional Kafka via Compose profile.
 
 Resource caps should be set so a 16 GB machine remains usable.
 
@@ -240,4 +240,4 @@ Vite 7 + React 19 + TypeScript + Tailwind 4 SPA under `frontend/`. Axios client 
 
 ## 17. Explicit honesty
 
-Phases 2–7 are **implemented** on `feature/phase-7-frontend` (backend tip from Phase 6 `f943e87` plus SPA). Risk rule-management APIs, manual review approval, CI, and webhook secret rotation are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Access JWTs are not denylisted on logout. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Phases 2–8 are **implemented** on `feature/phase-8-devops` (local verify). Risk rule-management APIs, manual review approval, webhook secret rotation, remote CI proof, and production HTTPS browser login are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Access JWTs are not denylisted on logout. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).

@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.EnumSet;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +39,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class RefundService {
+
+	private static final Logger log = LoggerFactory.getLogger(RefundService.class);
 
 	static final Duration IDEMPOTENCY_RETENTION = Duration.ofHours(72);
 	static final Duration STARTED_LEASE = Duration.ofSeconds(30);
@@ -213,6 +217,9 @@ public class RefundService {
 
 		record.markCompleted(refund.getId(), HttpStatus.CREATED.value(), responseJson, Instant.now());
 		idempotencyRepository.saveAndFlush(record);
+		// Identifiers and status only — never amount bodies, secrets, or card data.
+		log.info("refund_create refundId={} paymentId={} merchantId={} status={}",
+				refund.getId(), refund.getPaymentId(), refund.getMerchantId(), refund.getStatus());
 		return response;
 	}
 

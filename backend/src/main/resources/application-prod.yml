@@ -1,4 +1,17 @@
+# Production profile — fail closed. Supply secrets via env / mounted files only.
+# Sandbox simulation only: never enables live card processing.
+
 spring:
+  datasource:
+    # No local defaults — unset env vars fail startup.
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -6,14 +19,35 @@ spring:
     enabled: true
 
 server:
+  # Trust X-Forwarded-* from the TLS-terminating reverse proxy (Nginx / load balancer).
+  forward-headers-strategy: framework
   error:
     include-message: never
+    include-binding-errors: never
     include-stacktrace: never
+    include-exception: false
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis
+  health:
+    kafka:
+      enabled: ${PAYFLOW_KAFKA_HEALTH_ENABLED:false}
+  info:
+    env:
+      enabled: false
 
 springdoc:
   api-docs:
@@ -23,13 +57,33 @@ springdoc:
 
 payflow:
   kafka:
-    enabled: ${PAYFLOW_KAFKA_ENABLED:true}
+    # Explicit opt-in only — do not start workers by default.
+    enabled: ${PAYFLOW_KAFKA_ENABLED:false}
+    consumer:
+      enabled: ${PAYFLOW_KAFKA_CONSUMER_ENABLED:false}
+  outbox:
+    publisher:
+      enabled: ${PAYFLOW_OUTBOX_PUBLISHER_ENABLED:false}
+  webhooks:
+    delivery:
+      enabled: ${PAYFLOW_WEBHOOK_DELIVERY_ENABLED:false}
   security:
     jwt:
       auto-generate-keys: false
+      private-key-path: ${JWT_PRIVATE_KEY_PATH}
+      public-key-path: ${JWT_PUBLIC_KEY_PATH}
     browser-session:
       cookie-secure: true
       cookie-same-site: Lax
+    api-key:
+      # No default pepper — must be supplied.
+      hash-pepper: ${API_KEY_HASH_PEPPER}
+    webhook:
+      encryption-key-base64: ${WEBHOOK_SECRET_ENCRYPTION_KEY}
+    cors:
+      # Comma-separated absolute origins, e.g. https://app.example.com
+      # Same-origin Nginx SPA still requires at least one configured public origin for any browser CORS use.
+      allowed-origins: ${PAYFLOW_CORS_ALLOWED_ORIGINS}
     rate-limit:
       fail-closed-when-redis-unavailable: true
 
@@ -38,3 +92,4 @@ logging:
     root: INFO
     com.payflow: INFO
     org.springframework.security: WARN
+  # Pattern inherits console layout from application.yml (includes correlationId).

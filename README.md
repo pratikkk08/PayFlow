@@ -12,9 +12,9 @@ It is intentionally **not** a thin CRUD demo.
 
 ## Current status
 
-**Phase 7 — React merchant dashboard (complete on `feature/phase-7-frontend`).** Secure browser auth (memory access JWT + HttpOnly refresh cookie + CSRF), merchants, analytics, simulated payments/refunds, API-key and webhook management UIs against the local API.
+**Phase 8 — CI / DevOps (complete locally on `feature/phase-8-devops`).** CI workflow, Docker images, prod fail-closed config, deployment Compose, Playwright E2E (local), ops/backup runbooks, and Task 8.8 verification checkpoint. Remote GitHub Actions and production HTTPS browser login are **not** verified until push / TLS.
 
-Not yet built: risk rule-management APIs, manual review approval, CI, webhook secret rotation, Playwright E2E suite, self-service ADMIN grant.
+Not yet built (Phase 9+): CI-hosted E2E, TLS-terminated Secure-cookie browser proof, risk rule-management APIs, webhook secret rotation, public cloud deploy.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) for phase progress.
 
@@ -44,9 +44,9 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/DEVELOPMENT_LOG.md](docs/DEVELO
 | Cache / rate limits | Redis |
 | Messaging | Apache Kafka |
 | Frontend | React, TypeScript, Vite, Tailwind CSS |
-| Tests | JUnit 5, Mockito, Testcontainers; frontend tests; Playwright later |
+| Tests | JUnit 5, Mockito, Testcontainers; Vitest; Playwright Chromium E2E (local) |
 | API docs | OpenAPI / Swagger |
-| Infra | Docker Compose, GitHub Actions (later), cloud deployment (later) |
+| Infra | Docker Compose, GitHub Actions CI, backend + frontend Docker images (Tasks 8.2–8.3), cloud deployment (later) |
 
 ## Architecture approach
 
@@ -70,20 +70,21 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 4 | Refunds, ledger, idempotency hardening |
 | 5 | Webhooks, outbox, Kafka consumers |
 | 6 | Risk rules & analytics |
-| 7 | React dashboard ← **done** (branch `feature/phase-7-frontend`) |
-| 8 | CI, hardening, portfolio polish ← **next** |
+| 7 | React dashboard ← **done** |
+| 8 | CI, hardening, portfolio polish ← **done locally** (8.1–8.8); remote CI / HTTPS login pending |
+| 9 | Portfolio polish / TLS / remote CI ← **not started** |
 
 Full plan: [docs/ROADMAP.md](docs/ROADMAP.md). Product scope: [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md).
 
 ## Repository layout
 
 ```
-backend/              Spring Boot application (Phase 1+)
-frontend/             React + TypeScript + Vite client (Phase 7+)
+backend/              Spring Boot application + Dockerfile (Phase 8.2)
+frontend/             React + TypeScript + Vite client + Dockerfile/Nginx (Phase 8.3)
 infra/                Docker Compose and infrastructure assets
 scripts/              Local helper scripts
 docs/                 Requirements, architecture, roadmap, decisions, logs
-.github/workflows/    CI workflows (when introduced)
+.github/workflows/    CI (`ci.yml` — backend + frontend verify)
 AGENTS.md             Persistent instructions for AI coding agents
 ```
 
@@ -119,6 +120,60 @@ Verified tool versions: [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md)
 
 **Note:** Compose Postgres uses host port **5433** by default. JWT PEM keys are auto-created under `backend/local-secrets/` for local profile.
 
+### CI
+
+GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on PRs, pushes to `main`/`feature/**`, and `workflow_dispatch`:
+
+- **Backend:** Temurin 21 + Maven Wrapper `clean verify` (Docker/Testcontainers)
+- **Frontend:** Node 24 — `npm ci`, typecheck, lint, test, build, `npm audit --omit=dev`
+- **Playwright E2E:** local only for now (`npm run test:e2e`); not a CI gate until full-stack runner bring-up exists — see [docs/SETUP.md](docs/SETUP.md) § Playwright E2E
+
+Local parity commands: [docs/SETUP.md](docs/SETUP.md) § CI. Remote Actions runs are **not verified** until the repo is pushed and a workflow completes.
+
+### Playwright E2E (local)
+
+```powershell
+# Backend on :8080 + Compose Postgres/Redis must already be healthy
+cd frontend
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+Three Chromium scenarios: auth/session, merchant isolation, simulated payment lifecycle. Reports under `frontend/playwright-report/` (gitignored). Does **not** verify production HTTPS Secure-cookie login.
+
+### Backend Docker image
+
+```powershell
+docker build -t payflow-backend:local -f backend/Dockerfile backend
+# Run on Compose network — see docs/SETUP.md § Backend Docker image
+```
+
+Runtime: Temurin 21 JRE Alpine, non-root `payflow`, port 8080, `HEALTHCHECK` → `/actuator/health`. Measured size ~**477 MB**. No secrets in the image.
+
+### Frontend Docker image
+
+```powershell
+docker build -t payflow-frontend:local -f frontend/Dockerfile frontend
+# Run on Compose network with backend — see docs/SETUP.md § Frontend Docker image
+```
+
+Runtime: Nginx unprivileged Alpine, non-root `nginx`, port 8080, SPA + `/api/v1` proxy. Measured size ~**74.9 MB**. Same-origin cookies/CSRF; CSP without `unsafe-eval`; no Vite secrets in the image.
+
+### Production profile
+
+`SPRING_PROFILES_ACTIVE=prod` requires explicit DB/JWT/pepper/webhook/CORS configuration and rejects local placeholders. Template: [`.env.production.example`](.env.production.example). Details: [docs/SECURITY.md](docs/SECURITY.md).
+
+### Deployment Compose
+
+```powershell
+.\scripts\prepare-deploy-smoke-secrets.ps1
+docker compose -f infra/docker-compose.deploy.yml --env-file secrets/deploy-smoke/.env up -d --build
+# http://127.0.0.1:18080  (DB/Redis/backend not published)
+docker compose -f infra/docker-compose.deploy.yml --env-file secrets/deploy-smoke/.env down
+```
+
+Dev infra remains `infra/docker-compose.yml` (published Postgres/Redis). See [docs/SETUP.md](docs/SETUP.md) § Deployment Compose. Day-to-day ops and backups: [docs/OPERATIONS.md](docs/OPERATIONS.md), [docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md).
+
 ## Documentation
 
 | Document | Description |
@@ -130,6 +185,8 @@ Verified tool versions: [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md)
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records |
 | [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | Chronological progress log |
 | [docs/SETUP.md](docs/SETUP.md) | Local environment setup |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Deploy Compose ops / health / troubleshooting |
+| [docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md) | PostgreSQL logical backup & disposable restore |
 | [docs/ENVIRONMENT_REPORT.md](docs/ENVIRONMENT_REPORT.md) | Tool verification results |
 
 ## Safety

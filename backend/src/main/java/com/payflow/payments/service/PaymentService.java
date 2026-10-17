@@ -194,6 +194,8 @@ public class PaymentService {
 		paymentRepository.saveAndFlush(payment);
 		outboxEventWriter.appendPaymentEvent(payment,
 				result.approved() ? OutboxEventType.PAYMENT_AUTHORIZED : OutboxEventType.PAYMENT_FAILED);
+		log.info("payment_authorize paymentId={} merchantId={} status={}",
+				payment.getId(), payment.getMerchantId(), payment.getStatus());
 		return toResponse(payment);
 	}
 
@@ -224,6 +226,8 @@ public class PaymentService {
 		paymentRepository.saveAndFlush(payment);
 		ledgerPostingService.postPaymentCapture(payment);
 		outboxEventWriter.appendPaymentEvent(payment, OutboxEventType.PAYMENT_CAPTURED);
+		log.info("payment_capture paymentId={} merchantId={} status={}",
+				payment.getId(), payment.getMerchantId(), payment.getStatus());
 		return toResponse(payment);
 	}
 
@@ -241,6 +245,8 @@ public class PaymentService {
 		}
 		paymentRepository.saveAndFlush(payment);
 		outboxEventWriter.appendPaymentEvent(payment, OutboxEventType.PAYMENT_CANCELLED);
+		log.info("payment_cancel paymentId={} merchantId={} status={}",
+				payment.getId(), payment.getMerchantId(), payment.getStatus());
 		return toResponse(payment);
 	}
 
@@ -365,6 +371,8 @@ public class PaymentService {
 
 		record.markCompleted(payment.getId(), HttpStatus.CREATED.value(), responseJson, Instant.now());
 		idempotencyRepository.saveAndFlush(record);
+		log.info("payment_create paymentId={} merchantId={} status={}",
+				payment.getId(), payment.getMerchantId(), payment.getStatus());
 		return response;
 	}
 

@@ -34,6 +34,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.payflow.shared.security.ApiKeyAuthenticationFilter;
 import com.payflow.shared.security.AuthRateLimitFilter;
 import com.payflow.shared.security.PayflowBearerTokenResolver;
+import com.payflow.shared.security.PayflowSecurityProperties;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -49,22 +50,28 @@ public class SecurityConfig {
 	private final AuthRateLimitFilter authRateLimitFilter;
 	private final PayflowBearerTokenResolver bearerTokenResolver;
 	private final JwtAuthenticationConverter jwtAuthenticationConverter;
+	private final PayflowSecurityProperties securityProperties;
 
 	public SecurityConfig(ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
 			AuthRateLimitFilter authRateLimitFilter,
 			PayflowBearerTokenResolver bearerTokenResolver,
-			JwtAuthenticationConverter jwtAuthenticationConverter) {
+			JwtAuthenticationConverter jwtAuthenticationConverter,
+			PayflowSecurityProperties securityProperties) {
 		this.apiKeyAuthenticationFilter = apiKeyAuthenticationFilter;
 		this.authRateLimitFilter = authRateLimitFilter;
 		this.bearerTokenResolver = bearerTokenResolver;
 		this.jwtAuthenticationConverter = jwtAuthenticationConverter;
+		this.securityProperties = securityProperties;
 	}
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		boolean cookieSecure = securityProperties.getBrowserSession().isCookieSecure();
 		CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
 		csrfTokenRepository.setCookiePath("/");
-		csrfTokenRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax"));
+		csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+				.sameSite(securityProperties.getBrowserSession().getCookieSameSite())
+				.secure(cookieSecure));
 
 		RequestMatcher browserSessionCsrf = new OrRequestMatcher(
 				PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/browser/login"),
@@ -113,12 +120,8 @@ public class SecurityConfig {
 	@Bean
 	CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		// Include common Vite fallback ports when 5173 is already bound locally.
-		configuration.setAllowedOrigins(List.of(
-				"http://localhost:5173",
-				"http://127.0.0.1:5173",
-				"http://localhost:5174",
-				"http://127.0.0.1:5174"));
+		List<String> origins = securityProperties.getCors().getAllowedOrigins();
+		configuration.setAllowedOrigins(origins);
 		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id", "X-XSRF-TOKEN"));
 		configuration.setAllowCredentials(true);
