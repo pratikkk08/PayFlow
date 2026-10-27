@@ -11,6 +11,8 @@ export default defineConfig({
     },
   },
   server: {
+    // Bind IPv4 loopback so Playwright (127.0.0.1) and Windows localhost both reach Vite.
+    host: '127.0.0.1',
     port: 5173,
     proxy: {
       // Only `/api/v1` — do not match SPA routes like `/api-keys`.

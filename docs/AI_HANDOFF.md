@@ -1,11 +1,18 @@
 # PayFlow — AI Handoff
 
-**Updated:** 2026-10-17 (Task 9.4)
+**Updated:** 2026-10-27 (local complete-system verification)  
 **Purpose:** Minimal context for a new Cursor Agent chat. Prefer this + `AGENTS.md` over re-reading the whole repo history.
 
 ## Objective
 
 Simulated payment platform (portfolio): merchants, API keys, payments, refunds, ledger, events, webhooks, risk, analytics, React UI. **Sandbox only — no real cards or live funds.**
+
+## Project direction (user decision)
+
+1. **Remain LOCAL** on the Windows laptop for now.
+2. **No** Oracle Cloud, Vercel, VPS, or hosting work unless the user explicitly requests it later.
+3. GitHub repo stays **PRIVATE** until a later public-release prep step.
+4. After local verification (done), public GitHub release prep is a **separate** gated task.
 
 ## Stack
 
@@ -14,52 +21,43 @@ Simulated payment platform (portfolio): merchants, API keys, payments, refunds, 
 | Backend | Java 21, Spring Boot **4.1.1**, Flyway V1–V19 |
 | Frontend | React 19 + TypeScript + Vite 7 + Tailwind 4 + Vitest + Playwright |
 | Auth | JWT access (memory) + opaque refresh; browser: HttpOnly cookie + CSRF |
-| Dev ports | App **8080**, Vite **5173**, Postgres **5433**, Redis **6379** |
-| Deploy | `infra/docker-compose.deploy.yml` (+ optional HTTPS / **ARM64** overrides) |
-| Hosting plan | [DEPLOYMENT_PLAN.md](DEPLOYMENT_PLAN.md) — **₹0/month**; Oracle Always Free A1 |
-| Ops | [OPERATIONS.md](OPERATIONS.md), [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) |
+| Dev ports | App **8080**, Vite **5173** (`127.0.0.1`), Postgres **5433**, Redis **6379** |
 
 ## Git
 
 | Item | Value |
 |------|--------|
-| Branch | `feature/phase-9-portfolio` (from `d68269c`) |
-| Working tree | Tasks **9.1–9.4** local checkpoint (see latest commit on branch) |
-| Remote | Private `origin` expected after Task 9.5B (push still separate) |
-| GitHub Actions | **NOT VERIFIED** |
-| Cloud / native A1 | **NOT PROVISIONED / NOT VERIFIED** |
+| Branch | `feature/phase-9-portfolio` |
+| HEAD (verified) | `416ff05` |
+| Remote | Private `origin` → `https://github.com/pratikkk08/PayFlow.git` |
+| Working tree note | Local verification report + Vite IPv4 bind fix landed on this branch |
 
-## Task 9.4 — ARM64 deployment readiness (local)
+## Local verification (2026-10-27)
 
-| Check | Result |
-|-------|--------|
-| Buildx | `linux/arm64` available (Docker Desktop) |
-| `payflow-frontend:deploy-arm64` | **Built** (~236 s QEMU) |
-| `payflow-backend:deploy-arm64` | **Built** (~548 s QEMU) |
-| Emulated Compose smoke | **Pass** — aarch64 uname; ping/SPA/health 200; metrics 404; DB/Redis unpublished |
-| Redis on Desktop QEMU | Needs `--ignore-warnings ARM64-COW-BUG` (arm64 override); re-evaluate on native A1 |
-| Native Oracle Ampere | **NOT DONE** |
-| A1 capacity | **UNVERIFIED** |
-| Registry / cloud | No push; no provision |
+**Status: PASSED** — full report: [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md)
 
-Artifacts: `infra/docker-compose.deploy.arm64.yml`, `scripts/build-deploy-images-arm64.ps1`, `.env.a1.example`.
-
-## Tasks 9.1–9.3 (summary)
-
-- **9.1** GitHub readiness docs (no remote yet)
-- **9.2** Local HTTPS Secure-cookie E2E passed
-- **9.3** ₹0 hosting plan → Oracle Always Free A1 (2 OCPU / 12 GB)
+| Gate | Result |
+|------|--------|
+| Infra Postgres/Redis/Kafka | Healthy |
+| Backend ping/health + Flyway 19 | UP |
+| API journey (auth→webhooks) | 39/39 |
+| Live browser auth/merchants/session | PASS |
+| Backend `mvnw clean verify` | **242** passed |
+| Frontend typecheck/lint/test/build/audit | **82** Vitest; 0 audit vulns |
+| Playwright HTTP E2E | **3** passed |
+| Playwright HTTPS Secure-cookie | **1** passed |
+| Persistence across restart | PASS |
+| Fix applied | Vite `server.host: '127.0.0.1'` (Playwright IPv4 bind) |
 
 ## Limitations
 
-- Emulated ARM ≠ native Ampere proof
-- No public deploy; no paid fallback
-- Not PCI/SOC2
-
-**Next:** User approval — Oracle A1 capacity attempt **or** recorded/local demo packaging. Optional: private GitHub + remote CI.
+- Simulation only; not PCI/SOC2.
+- No public hosting; cloud plan docs remain historical reference only.
+- Public GitHub release **not started**.
 
 ## First actions in a new chat
 
-1. Read `AGENTS.md` + this file + [DEPLOYMENT_PLAN.md](DEPLOYMENT_PLAN.md).
-2. Confirm branch `feature/phase-9-portfolio` and uncommitted Phase 9 work.
-3. Do not push, commit, or provision cloud unless asked.
+1. Read `AGENTS.md` + this file + [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md).
+2. Confirm branch `feature/phase-9-portfolio` and read [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md).
+3. Do **not** change GitHub visibility or provision cloud unless the user asks.
+4. Next gated work (only if requested): public-release prep checklist — not hosting.
