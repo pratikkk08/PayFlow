@@ -1,17 +1,52 @@
 # PayFlow — Local Setup
 
-**Status:** Task 9.4 local ARM64 Buildx readiness (2026-10-17). Tasks 9.1–9.4 uncommitted. Native Oracle A1 / remote CI / public deploy **NOT VERIFIED**.
+**Status:** First-clone reproducible path verified 2026-10-27 — see [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md).  
+**Hosting / public cloud:** not required for day-to-day development. Optional deploy Compose and ARM64 notes remain later in this doc for operators who opt in.
+
+## Quick start (new clone)
+
+```powershell
+git clone https://github.com/pratikkk08/PayFlow.git
+cd PayFlow
+git checkout feature/phase-9-portfolio   # current development branch
+
+Copy-Item .env.example .env              # placeholders only — never commit .env
+. .\scripts\set-java-home.ps1            # if JAVA_HOME empty
+
+docker compose -f infra/docker-compose.yml --env-file .env up -d
+# Wait until postgres + redis are healthy: docker compose -f infra/docker-compose.yml ps
+
+cd backend
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+# First local start may auto-create backend/local-secrets/jwt-*.pem (gitignored)
+
+# New terminal
+cd frontend
+npm install
+npm run dev
+# Open http://127.0.0.1:5173/  (Vite binds IPv4 loopback for Playwright compatibility)
+```
+
+Smoke: `Invoke-RestMethod http://localhost:8080/api/v1/system/ping` → `status=UP`.
+
+Clean shutdown (keeps DB volumes):
+
+```powershell
+# Ctrl+C backend and Vite terminals
+docker compose -f infra/docker-compose.yml --profile kafka down
+# Do NOT use down -v unless you intend to wipe local Postgres/Redis/Kafka data
+```
 
 ## 1. Prerequisites
 
 | Tool | Target | Notes |
 |------|--------|-------|
-| Windows 11 | — | PowerShell |
-| Java JDK | 21 | Temurin verified: `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot` |
-| Node.js | 22+ / 24 | Required for `frontend/` (verified Node 24 + npm 11) |
+| Windows 11 | — | PowerShell (macOS/Linux may work with path adjustments; primary verify is Windows) |
+| Java JDK | 21 | Temurin recommended; `scripts\set-java-home.ps1` helps on Windows |
+| Node.js | 22+ / 24 | Frontend; verified Node 24 + npm 11 |
 | Git | 2.x | — |
-| Docker Desktop | WSL 2 | Engine must be running |
-| Maven | Wrapper only | `backend\mvnw.cmd` |
+| Docker Desktop | WSL 2 | Engine must be running before Compose / Testcontainers |
+| Maven | Wrapper only | `backend\mvnw.cmd` — no global Maven required |
 
 If `JAVA_HOME` is empty:
 
@@ -22,7 +57,7 @@ If `JAVA_HOME` is empty:
 ## 2. Environment file
 
 ```powershell
-cd C:\Projects\PayFlow
+cd <your-clone>\PayFlow
 Copy-Item .env.example .env
 # Edit only if you change ports/passwords. Never commit .env.
 ```
@@ -33,7 +68,9 @@ Important defaults:
 - Redis `6379`
 - Kafka (optional) host `9094`
 - `SPRING_PROFILES_ACTIVE=local`
-- `PAYFLOW_KAFKA_ENABLED=false` (Spring Kafka client still excluded in Phase 1)
+- `PAYFLOW_KAFKA_ENABLED=false` (enable only with Compose `--profile kafka` and matching app flags)
+- `PAYMENT_PROCESSOR_MODE=sandbox`
+- Local profile JWT auto-generate + documented placeholder pepper/webhook AES defaults for **local only** — never reuse in production
 
 ## 3. Start infrastructure
 
@@ -77,9 +114,10 @@ cd backend
 .\mvnw.cmd clean verify
 ```
 
-Phase 2 verified result: **12 tests, 0 failures** (requires Docker for Testcontainers Postgres + Redis).
+Requires Docker for Testcontainers (Postgres / Redis / Kafka as used by tests).  
+Local verification (2026-10-27): **242** tests, 0 failures — [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md).
 
-JWT RSA keys: local profile auto-generates `backend/local-secrets/jwt-*.pem` on first start (gitignored). Optional: `.\scripts\generate-jwt-keys.ps1`.
+JWT RSA keys: local profile auto-generates `backend/local-secrets/jwt-*.pem` on first start (gitignored). Optional: `.\scripts\generate-jwt-keys.ps1`. Do not commit PEMs.
 
 ## 5. Run the backend
 
@@ -140,12 +178,13 @@ npm install
 npm run dev
 ```
 
-- App: `http://localhost:5173` (Vite may fall back to **5174** if 5173 is busy) — proxies `/api/v1` and `/actuator` to Spring Boot `http://localhost:8080` (not bare `/api`, so SPA `/api-keys` is served correctly)
+- App: `http://127.0.0.1:5173/` (Vite `server.host` is `127.0.0.1` so Playwright and Windows loopback agree; `http://localhost:5173` also works when it resolves to IPv4). If 5173 is busy, free the port or set another explicitly.
+- Proxies `/api/v1` and `/actuator` to Spring Boot `http://localhost:8080` (not bare `/api`, so SPA `/api-keys` is served correctly)
 - Auth: `/login`, `/register`; dashboard routes require a browser session
 - Session: access JWT in memory; refresh via HttpOnly cookie on `/api/v1/auth/browser/**` (CSRF required; local profile sets `cookie-secure: false` for HTTP)
 - CORS (local): `http://localhost:5173` and `:5174` (and 127.0.0.1 equivalents)
 - Optional: copy `frontend/.env.example` → `frontend/.env` (never put secrets or refresh tokens in Vite env)
-- Checks: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`
+- Checks: `npm run typecheck`, `npm run lint`, `npm run test` (**82** Vitest locally verified), `npm run build`, `npm audit --omit=dev`
 
 ### Playwright E2E (Task 8.6)
 
@@ -211,17 +250,16 @@ npm audit --omit=dev
 
 **Local validation (Task 9.1):** `rhysd/actionlint` on `.github/workflows/ci.yml` — exit 0. No workflow defects fixed (none confirmed). Action majors (`checkout@v7`, `setup-java@v6`, `setup-node@v7`, `upload-artifact@v7`) match current official docs. Maven Wrapper is `distributionType=only-script` (no committed `.jar`).
 
-**Limitation:** until the branch is pushed and a workflow run completes, GitHub Actions execution is **NOT VERIFIED**.
+**Remote CI:** workflow runs on pushes to `feature/**` / `main`. Treat the latest green Actions run on `feature/phase-9-portfolio` as current proof; re-check before any public launch. Playwright remains local-only.
 
-### 9a. Git remote status & first Actions run (Task 9.1)
+### 9a. Git remote & visibility (public-release gate)
 
-| Item | Status (this machine) |
-|------|------------------------|
-| `git remote -v` | **Empty** — no `origin` |
-| GitHub CLI | Not authenticated (`gh auth login` required before `gh` repo create) |
-| Intended visibility for first publish | **Private** (do not flip public yet) |
-| Security review | No real PEMs/`.env`/DB dumps in tracked history; gitignored local files stay out of Git. Documented local placeholders (e.g. `change_me_local_only`, test peppers, local webhook AES examples) are **not** production secrets |
-| Public portfolio publish | **Not advised yet** — finish Phase 9 polish, keep claims accurate (simulation only, not PCI/SOC2), avoid shipping operational dump paths or implying live payments |
+| Item | Status |
+|------|--------|
+| `origin` | Private `https://github.com/pratikkk08/PayFlow.git` |
+| Intended visibility until approval | **Private** — do not flip public without the checklist in [PUBLIC_READINESS.md](PUBLIC_READINESS.md) |
+| Security review | No real PEMs/`.env`/DB dumps found in tracked history; gitignored local files stay out of Git. Documented local placeholders (e.g. `change_me_local_only`, test peppers, local webhook AES examples) are **not** production secrets |
+| Public portfolio publish | Gated — accurate simulation-only claims, screenshots, license choice, and explicit owner approval |
 
 **Before any push:** confirm `git status` is clean of secrets; never `git add -f` `.env`, `local-secrets/`, `secrets/`, `backups/`, Playwright traces, or `*.pem`.
 

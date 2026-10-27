@@ -1,41 +1,59 @@
 # PayFlow — Architecture
 
-**Status:** Modular monolith with Phases 1–7 implemented (backend domains + React operator console).  
-**Last updated:** 2026-10-17
+**Status:** Modular monolith with Phases 1–8 implemented locally; Phase 9 portfolio docs/local verify.  
+**Last updated:** 2026-10-27  
+**Honesty:** Simulation only — no real card networks or live funds. Diagrams match code on `feature/phase-9-portfolio`.
 
 ## 1. Overview
 
 PayFlow is a **modular monolith**: one Spring Boot deployable with package-level domain boundaries. Shared infrastructure (JPA, security filters, outbox publisher) supports domains without splitting into networked microservices prematurely.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     PayFlow Monolith                        │
-│  identity │ merchants │ payments │ refunds │ webhooks       │
-│  risk │ ledger │ analytics │ notifications │ shared/kernel  │
-└────────────┬──────────────────┬──────────────────┬──────────┘
-             │                  │                  │
-        PostgreSQL            Redis              Kafka
-     (source of truth)   (cache/rate limit)   (events)
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    SPA["React operator console"]
+    INT["Integration clients<br/>sk_test_ Bearer"]
+  end
+  subgraph mono [PayFlow Spring Boot modular monolith]
+    ID[identity]
+    MER[merchants + API keys]
+    PAY[payments]
+    REF[refunds]
+    LED[ledger]
+    RSK[risk]
+    AN[analytics]
+    WH[webhooks]
+    OB[outbox]
+    SH[shared]
+  end
+  PG[(PostgreSQL<br/>SoT + Flyway + outbox)]
+  RD[(Redis<br/>rate limit / cache)]
+  KF[[Kafka<br/>optional]]
+  SPA -->|browser JWT + CSRF| mono
+  INT --> mono
+  mono --> PG
+  mono --> RD
+  OB -.->|when enabled| KF
+  KF -.->|consumer when enabled| WH
 ```
 
-Frontend (React) talks to HTTP APIs. Merchants also call APIs with API keys.
+Frontend (React) talks to HTTP APIs. Integrations authenticate with secret API keys (`sk_test_…`).
 
 ## 2. Backend module boundaries
 
-| Module | Responsibility | Owns (conceptually) |
+| Module (Java package) | Responsibility | Owns (conceptually) |
 |--------|----------------|---------------------|
-| `identity` | Users, credentials, dashboard sessions/JWT | `User`, credentials |
-| `merchants` | Merchant profiles, membership | `Merchant` |
-| `apikeys` (or under merchants) | Issue/revoke keys, hash verification | `ApiKey` |
-| `payments` | Payment commands, state machine, processor port | `Payment`, `PaymentAttempt` |
-| `refunds` | Refund commands & state | `Refund` |
-| `ledger` | Postings / money movement audit | `LedgerEntry` |
+| `identity` | Users, passwords, JWT/refresh, browser session cookies | `User`, refresh tokens |
+| `merchants` | Merchant profiles, membership, API keys | `Merchant`, `ApiKey` |
+| `payments` | Payment commands, state machine, simulated processor | `Payment`, idempotency rows |
+| `refunds` | Refund commands & capacity | `Refund`, refund idempotency |
+| `ledger` | Double-entry postings (no public HTTP API) | `LedgerTransaction`, `LedgerEntry` |
 | `webhooks` | Endpoints, signatures, delivery attempts | `WebhookEndpoint`, `WebhookDelivery` |
-| `risk` | Rules evaluation before/during payment | `RiskRule`, `RiskDecision` |
-| `analytics` | Aggregations / read models | projections or query services |
-| `notifications` | Email/log stubs for notable events | optional |
-| `outbox` / messaging | Transactional outbox, Kafka publish/consume | `OutboxMessage` |
-| `shared` | Money types, idempotency, errors, time | cross-cutting primitives |
+| `risk` | Rules evaluation on authorize | rules, assessments, auth attempts |
+| `analytics` | Read-only SQL aggregates | overview / daily responses |
+| `notifications` | Stub package for future notices | optional |
+| `outbox` | Transactional outbox, Kafka publish/consume | `OutboxEvent`, `ProcessedEvent` |
+| `shared` | Security filters, errors, money helpers | cross-cutting |
 
 **Rule:** Domain modules do not reach into each other’s persistence internals. Prefer application services and published domain events.
 
@@ -67,36 +85,42 @@ Merchant 1──* RiskRule
 
 **OutboxMessage:** `id`, `aggregateType`, `aggregateId`, `eventType`, `payload`, `createdAt`, `publishedAt`.
 
-Exact schema will be introduced via Flyway in implementation phases.
+Schema is owned by Flyway migrations **V1–V19** (`Hibernate ddl-auto=validate`).
 
 ## 4. Payment lifecycle (state machine)
 
-### Proposed statuses
+### Statuses (implemented)
 
 | Status | Meaning |
 |--------|---------|
 | `CREATED` | Persisted, not yet authorized |
-| `AUTHORIZED` | Hold simulated successfully (if auth/capture split used) |
-| `CAPTURED` | Funds captured (success terminal for happy path charge) |
-| `VOIDED` | Authorization released |
-| `FAILED` | Terminal failure (decline/validation/risk) |
-| `CANCELLED` | Abandoned before auth (if needed) |
+| `AUTHORIZED` | Simulated auth hold succeeded |
+| `CAPTURED` | Simulated capture succeeded — **not** bank settlement |
+| `FAILED` | Terminal failure (decline / risk BLOCK) |
+| `CANCELLED` | Cancelled from `CREATED` or `AUTHORIZED` |
 
-**Phase 3 choice:** two-step authorize/capture (not single-step). Cancellation uses status `CANCELLED` (from `CREATED` or `AUTHORIZED`). Status `VOIDED` is not used. See [DECISIONS.md](DECISIONS.md) ADR-017.
+**Design:** two-step authorize/capture. Status `VOIDED` is **not** used (cancellation is `CANCELLED`). See [DECISIONS.md](DECISIONS.md) ADR-017.
 
-### Allowed transitions (implemented)
-
-```
-CREATED → AUTHORIZED → CAPTURED
-CREATED → FAILED
-CREATED → CANCELLED
-AUTHORIZED → CANCELLED
+```mermaid
+stateDiagram-v2
+  [*] --> CREATED
+  CREATED --> AUTHORIZED: authorize OK
+  CREATED --> FAILED: risk BLOCK / processor fail
+  CREATED --> CANCELLED: cancel
+  AUTHORIZED --> CAPTURED: capture
+  AUTHORIZED --> CANCELLED: cancel
+  CAPTURED --> [*]
+  FAILED --> [*]
+  CANCELLED --> [*]
 ```
 
 Refunds are a separate aggregate against `CAPTURED` payments only (no payment-level `REFUNDED` status):
 
-```
-Refund: PENDING → SUCCEEDED | FAILED
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING
+  PENDING --> SUCCEEDED
+  PENDING --> FAILED
 ```
 
 Illegal transitions throw a domain error; persistence uses optimistic locking (`version`) plus payment-row locks on refund create to prevent lost updates under concurrency.
@@ -119,13 +143,14 @@ Illegal transitions throw a domain error; persistence uses optimistic locking (`
 
 | Surface | Mechanism |
 |---------|-----------|
-| Merchant HTTP API | `Authorization: Bearer pk_live_...` or `X-Api-Key`; lookup by prefix, verify hash |
-| Dashboard | Session cookie or JWT after password login (bcrypt/argon2 hashed passwords) |
-| Actuator | `prod` exposes health (+ liveness/readiness groups) with `show-details: never`; metrics ADMIN-gated when exposed; Nginx proxies exact health probes only |
+| Integration API | `Authorization: Bearer sk_test_…` — prefix lookup + HMAC-SHA256(pepper, secret). Publishable `pk_test_…` cannot call privileged endpoints. LIVE prefix strings are recognized for classification only; **issuance is TEST mode**. |
+| Operator console | Password login (BCrypt); access JWT in memory; opaque refresh (SHA-256 at rest) via HttpOnly cookie + CSRF on `/api/v1/auth/browser/**` |
+| JSON token clients | `/api/v1/auth/login|refresh|logout` returning access + refresh tokens |
+| Actuator | `prod` exposes health (+ liveness/readiness) with `show-details: never`; metrics ADMIN-gated; Nginx proxies exact health probes only |
 
-**API key storage:** generate high-entropy secret, display once, store `HMAC`/`bcrypt`/`argon2` hash + public prefix. Revocation is immediate via status flag.
+**API key storage:** high-entropy secret, display once, store HMAC hash + public prefix. Revocation is immediate via status flag.
 
-**Rate limiting:** Redis-backed counters per API key / IP (introduced with Redis wiring).
+**Rate limiting:** Redis-backed counters on register/login/refresh; **fail-closed** if Redis is down.
 
 ## 6. Idempotency and concurrency
 
@@ -160,10 +185,29 @@ Postings are append-only double-entry rows (`ledger_transactions` + two `ledger_
 
 ## 8. Event handling and webhook delivery
 
-Topic `payflow.domain-events.v1`. Dead-letter topic `payflow.domain-events.v1.dlt`. Consumer group `payflow-domain-events-internal`. Consumer identity `payflow-domain-events-recorder`.
+Topic `payflow.domain-events.v1`. Dead-letter topic `payflow.domain-events.v1.dlt`. Consumer group `payflow-domain-events-internal`.
+
+```mermaid
+sequenceDiagram
+  participant S as Payment/Refund service
+  participant PG as PostgreSQL
+  participant P as OutboxPublisher
+  participant K as Kafka
+  participant C as DomainEvent consumer
+  participant W as WebhookDeliveryWorker
+  participant H as Merchant HTTPS endpoint
+  S->>PG: domain change + outbox_events (same TX)
+  P->>PG: claim FOR UPDATE SKIP LOCKED
+  P->>K: publish acks=all
+  P->>PG: mark PUBLISHED
+  K->>C: at-least-once delivery
+  C->>PG: processed_events + webhook_deliveries (same TX)
+  W->>PG: claim delivery job
+  W->>H: signed HTTPS POST (when delivery enabled)
+```
 
 1. Payment and refund services insert `outbox_events` in the **same** PostgreSQL transaction as the financial change. A failed outbox write rolls the money change back.
-2. `OutboxPublisher` claims with `FOR UPDATE SKIP LOCKED` and a claim token, commits, then waits for a Kafka ACK (`acks=all`) before `PUBLISHED`. Stale tokens cannot finalize the row. Expired `PROCESSING` leases are reclaimable. Exhausted attempts become `FAILED`.
+2. `OutboxPublisher` claims with `FOR UPDATE SKIP LOCKED` and a claim token, commits, then waits for a Kafka ACK (`acks=all`) before `PUBLISHED`. Stale tokens cannot finalize the row. Expired `PROCESSING` leases are reclaimable. Exhausted attempts become `FAILED`. Publisher stays off until `payflow.kafka.enabled` / outbox publisher flags are true.
 3. `DomainEventKafkaListener` validates the envelope. Malformed events go to the DLT without a processed marker. The handler inserts `processed_events` and matching `webhook_deliveries` in one transaction. Redelivery of the same event id is a no-op.
 4. `WebhookDeliveryWorker` (off unless `payflow.webhooks.delivery.enabled=true`) claims a job, commits, then POSTs. HMAC base is `{unixSeconds}.{eventId}.{body}` with header `X-PayFlow-Signature: v1=<hex>`. The socket connects only to the DNS-validated IP. TLS uses the JVM trust store, SNI, and hostname checks for the original host, and the HTTP `Host` header is that hostname. Redirects are permanent failures. 429/5xx/timeouts retry with backoff.
 
@@ -192,10 +236,10 @@ Operations: Micrometer gauges for pending/failed/expired outbox and webhook rows
 | Integration | Testcontainers (Postgres, Redis, Kafka as needed) | Repositories, Flyway, API slices |
 | API | MockMvc / WebTestClient | Auth, validation, status codes |
 | Frontend | Vitest + React Testing Library | Auth, merchants, analytics, payments/refunds, API keys, webhooks |
-| E2E | Playwright (later) | Critical merchant journeys |
+| E2E | Playwright Chromium (local) | Auth/session, merchant isolation, payment lifecycle; optional HTTPS Secure-cookie |
 | Manual | Compose stack | Smoke on Windows + Docker |
 
-CI runs unit + integration on PR once workflows exist. Do not ignore failing tests.
+CI (GitHub Actions): backend `mvnw clean verify` + frontend typecheck/lint/test/build/audit. Playwright is local-only for now. Local verify evidence: [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md).
 
 ## 11. Observability
 
@@ -240,4 +284,6 @@ Vite 7 + React 19 + TypeScript + Tailwind 4 SPA under `frontend/`. Axios client 
 
 ## 17. Explicit honesty
 
-Phases 2–8 are **implemented** on `feature/phase-8-devops` (local verify). Risk rule-management APIs, manual review approval, webhook secret rotation, remote CI proof, and production HTTPS browser login are not. Kafka publish and outbound webhook HTTP default to off. Delivery is at-least-once. Access JWTs are not denylisted on logout. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
+Phases 1–8 are **implemented** and locally verified on `feature/phase-9-portfolio` (see [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md)). Phase 9 covers portfolio docs / local HTTPS / readiness — **not** public cloud hosting.
+
+Still not built or not claimed: risk rule-management APIs, manual REVIEW approval workflow, webhook secret rotation API, CI-hosted Playwright, public production deploy. Kafka publish and outbound webhook HTTP default to **off**. Delivery is at-least-once. Access JWTs are not denylisted on logout. Significant changes must be recorded in [DECISIONS.md](DECISIONS.md).
