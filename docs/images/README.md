@@ -1,22 +1,24 @@
 # Portfolio screenshots
 
-Place verified UI captures here before public GitHub launch. Link them from the root [README.md](../../README.md).
+Checked-in PNGs from a local sandbox run (2026-10-27). Synthetic demo operator only. Linked from the root [README.md](../../README.md).
 
-## Guidelines
-
-- Capture from a **local** sandbox run only (`PAYMENT_PROCESSOR_MODE=sandbox`).
-- Prefer WebP or PNG; keep files reasonably sized (&lt; ~500 KB each when practical).
-- **Blur or crop** one-time API key / webhook signing secrets and any personal email you do not want public.
-- Do not commit `.env`, PEMs, or database dumps alongside images.
-- Filenames (suggested):
+## Files
 
 | File | Subject |
 |------|---------|
-| `01-login.png` | Sign-in screen |
-| `02-dashboard-analytics.png` | Merchant overview metrics |
-| `03-payment-detail.png` | Simulated payment lifecycle |
-| `04-refund.png` | Partial refund |
-| `05-api-keys.png` | API keys list (secret dialog blurred) |
-| `06-webhooks.png` | Webhook config (secret blurred) |
+| `01-merchant-analytics-dashboard.png` | Overview metrics + sandbox disclaimers |
+| `02-merchant-list-and-selector.png` | Merchant selector dropdown (multi-merchant) |
+| `02b-merchants-page.png` | Merchants management list |
+| `03-payment-list.png` | Simulated payment list |
+| `04-captured-payment-detail.png` | CAPTURED payment + partial refund history |
+| `05-partial-refund-history.png` | Refunds nav (CAPTURED payments → manage refunds) |
+| `06-api-key-management.png` | TEST API keys metadata (prefix only; no reveal dialog) |
+| `07-webhook-configuration.png` | Webhook endpoint config (secret prefix only) |
 
-No binary screenshots are checked in yet — that is intentional until you approve captures.
+## Guidelines
+
+- Capture from local Vite + Spring Boot only (`PAYMENT_PROCESSOR_MODE=sandbox`).
+- Desktop viewport used: **1440×900**.
+- Do **not** open secret-reveal dialogs when capturing.
+- Do not commit `.env`, PEMs, or database dumps.
+- Regenerate (optional): with backend/Vite up, set `PAYFLOW_DEMO_EMAIL`, `PAYFLOW_DEMO_PASSWORD`, `PAYFLOW_DEMO_PAYMENT_ID`, then run `node scripts/capture-portfolio-screenshots.mjs` from the repo root (uses `frontend` Playwright).

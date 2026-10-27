@@ -183,18 +183,20 @@ GitHub Actions [`.github/workflows/ci.yml`](.github/workflows/ci.yml): Temurin 2
 
 ## Screenshots
 
-No checked-in product screenshots yet (intentionally — capture from a local run before public launch).
+Captured from a **local** sandbox session with a synthetic demo operator (no real PII, no secret-reveal dialogs). Prefixes such as `sk_test_…` / `whsec_…` are truncated metadata only.
 
-**Recommended captures for portfolio README** (sandbox UI only; redact emails if desired):
+| | |
+|:--|:--|
+| **Analytics overview** | **Merchant list** |
+| ![Merchant analytics dashboard](docs/images/01-merchant-analytics-dashboard.png) | ![Merchants page](docs/images/02b-merchants-page.png) |
+| **Merchant selector** | **Payment list** |
+| ![Merchant selector](docs/images/02-merchant-list-and-selector.png) | ![Payment list](docs/images/03-payment-list.png) |
+| **Captured payment + partial refund** | **Refunds entry (CAPTURED payments)** |
+| ![Captured payment detail](docs/images/04-captured-payment-detail.png) | ![Refunds page](docs/images/05-partial-refund-history.png) |
+| **TEST API keys (metadata)** | **Webhook configuration** |
+| ![API key management](docs/images/06-api-key-management.png) | ![Webhook configuration](docs/images/07-webhook-configuration.png) |
 
-1. Login / register  
-2. Dashboard analytics overview  
-3. Payments list + payment detail (authorize/capture)  
-4. Partial refund  
-5. API key create with one-time secret dialog (blur secret)  
-6. Webhook endpoint config (blur signing secret)  
-
-Store under `docs/images/` (PNG/WebP) and link here when ready. Do not commit real secrets visible in UI.
+All figures show **simulated** INR activity in the operator console. Capture notes: [docs/images/README.md](docs/images/README.md).
 
 ---
 

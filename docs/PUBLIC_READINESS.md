@@ -17,8 +17,8 @@ Evidence baseline: [LOCAL_VERIFICATION_REPORT.md](LOCAL_VERIFICATION_REPORT.md).
 | Technical narrative for recruiters | Ready after this doc pass | Capabilities tied to verified behavior |
 | Local reproducibility | Ready | SETUP quick-start + verified ports/versions |
 | Automated test story | Ready | 242 backend / 82 Vitest / Playwright local + CI workflow |
-| Screenshots | **Blocker for polish** | None checked in; capture checklist below |
-| License | **Decision blocker** | No LICENSE yet; options listed — do not invent |
+| Screenshots | Ready (pending commit) | Eight PNGs under `docs/images/` linked from README |
+| License | **Decision blocker** | No LICENSE yet — wait for owner MIT / Apache-2.0 / none |
 | Secrets in Git | Ready (placeholders only) | No real PEMs/`.env`/dumps in history |
 | Visibility | Keep private until explicit approval | Description/topics recommended below |
 | Cloud hosting | Out of scope | Do not imply a live public demo URL |

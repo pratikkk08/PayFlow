@@ -1,6 +1,7 @@
 # PayFlow — AI Handoff
 
-**Updated:** 2026-10-27 (public GitHub readiness audit — not published)  
+**Updated:** 2026-10-27 (final public presentation prep — screenshots ready, not published)
+
 **Purpose:** Minimal context for a new Cursor Agent chat. Prefer this + `AGENTS.md` over re-reading the whole repo history.
 
 ## Objective
@@ -28,9 +29,10 @@ Simulated payment platform (portfolio): merchants, API keys, payments, refunds, 
 | Item | Value |
 |------|--------|
 | Branch | `feature/phase-9-portfolio` |
-| Baseline HEAD | `99b529f` (local verification landed); readiness doc edits may be uncommitted |
+| Baseline HEAD | `d91e151` (readiness docs); screenshot/README updates may be uncommitted |
 | Remote | Private `https://github.com/pratikkk08/PayFlow.git` |
 | Visibility | **PRIVATE** — do not change |
+| CI @ d91e151 | Green — run [40556712566](https://github.com/pratikkk08/PayFlow/actions/runs/40556712566) |
 
 ## Evidence
 
@@ -44,4 +46,4 @@ Simulated payment platform (portfolio): merchants, API keys, payments, refunds, 
 1. Read `AGENTS.md` + this file + [PUBLIC_READINESS.md](PUBLIC_READINESS.md).
 2. `git status` / `git log -1` — expect possible uncommitted README/ARCHITECTURE/SETUP/readiness docs.
 3. Do **not** push, commit, flip visibility, or provision cloud unless the user asks.
-4. Next gated work: screenshots → license → owner “make public” approval.
+4. Next gated work: commit screenshots if approved → license decision → GitHub About/topics → owner “make public” approval.
